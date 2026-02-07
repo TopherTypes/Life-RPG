@@ -17,18 +17,28 @@ export function validateEntry(entry) {
   const hardErrors = [];
   const softWarnings = [];
   const anomalies = [];
+  const fieldErrors = {};
+
+  /**
+   * Registers both an input-level and summary-level validation message.
+   */
+  const addFieldError = (fieldId, message) => {
+    if (!fieldErrors[fieldId]) fieldErrors[fieldId] = [];
+    fieldErrors[fieldId].push(message);
+    hardErrors.push(message);
+  };
 
   // Date plus one other metric is required. Empty numeric fields are currently ignored.
   const providedMetricCount = DAILY_FIELDS.filter((field) => entry[field] !== null).length;
   if (providedMetricCount < 1) {
-    hardErrors.push("Please provide at least one metric in addition to date.");
+    addFieldError("entry-date", "Please provide at least one metric in addition to date.");
   }
 
   if (entry.mood !== null && (entry.mood < 1 || entry.mood > 10)) {
-    hardErrors.push("Mood must be between 1 and 10.");
+    addFieldError("mood", "Mood must be between 1 and 10.");
   }
   if (entry.exerciseEffort !== null && (entry.exerciseEffort < 1 || entry.exerciseEffort > 10)) {
-    hardErrors.push("Exercise effort must be between 1 and 10.");
+    addFieldError("exerciseEffort", "Exercise effort must be between 1 and 10.");
   }
 
   // Exercise duration and effort must be logged together to avoid incomplete workout data.
@@ -55,5 +65,5 @@ export function validateEntry(entry) {
     softWarnings.push(`Anomalies detected: ${anomalies.join(", ")}. Value included but flagged.`);
   }
 
-  return { hardErrors, softWarnings, anomalies };
+  return { hardErrors, softWarnings, anomalies, fieldErrors };
 }

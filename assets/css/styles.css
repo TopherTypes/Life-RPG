@@ -104,6 +104,23 @@ input, textarea, button {
 
 textarea { min-height: 110px; resize: vertical; }
 
+
+/*
+ * Field-level validation treatment for daily entry inputs.
+ * Keeps invalid state visually distinct while preserving dark-theme contrast.
+ */
+.input-invalid {
+  border-color: #cf4b4b;
+  box-shadow: 0 0 0 1px rgba(207, 75, 75, 0.35);
+}
+
+.field-error {
+  min-height: 1.1rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #ff9f9f;
+}
+
 button.primary {
   background: var(--accent-strong);
   border-color: #4e9cf4;

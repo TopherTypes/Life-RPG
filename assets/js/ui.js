@@ -49,6 +49,39 @@ export function hydrateFormForDate(state) {
 }
 
 /**
+ * Clears all field-level validation UI and inline error messages.
+ */
+export function clearEntryFieldErrors() {
+  const form = document.getElementById("entry-form");
+  const inputs = form.querySelectorAll("input");
+
+  inputs.forEach((input) => {
+    input.classList.remove("input-invalid");
+    input.removeAttribute("aria-invalid");
+
+    const errorSlot = document.getElementById(`${input.id}-error`);
+    if (errorSlot) errorSlot.textContent = "";
+  });
+}
+
+/**
+ * Maps validation issues to individual form fields while preserving top-level summaries.
+ */
+export function showEntryFieldErrors(fieldErrors = {}) {
+  clearEntryFieldErrors();
+
+  Object.entries(fieldErrors).forEach(([fieldId, messages]) => {
+    const input = document.getElementById(fieldId);
+    const errorSlot = document.getElementById(`${fieldId}-error`);
+    if (!input || !errorSlot || !messages?.length) return;
+
+    input.classList.add("input-invalid");
+    input.setAttribute("aria-invalid", "true");
+    errorSlot.textContent = messages.join(" ");
+  });
+}
+
+/**
  * Reads and normalizes daily form input into the entry schema.
  */
 export function readEntryFromForm() {
