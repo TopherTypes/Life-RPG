@@ -235,6 +235,23 @@ export function renderDashboard(state) {
     exerciseMinutes: avg(latest7.map((e) => e.exerciseMinutes).filter((v) => v !== null)),
   };
 
+  // Track per-metric sample sizes so sparse datasets render with explicit placeholders, not misleading zeros.
+  const averageSampleSizes = {
+    calories: latest7.filter((entry) => entry.calories !== null).length,
+    sleepHours: latest7.filter((entry) => entry.sleepHours !== null).length,
+    mood: latest7.filter((entry) => entry.mood !== null).length,
+    steps: latest7.filter((entry) => entry.steps !== null).length,
+    exerciseMinutes: latest7.filter((entry) => entry.exerciseMinutes !== null).length,
+  };
+
+  /**
+   * Formats a 7-day average with an em dash fallback when not enough datapoints exist.
+   */
+  const formatAverage = (metricKey, decimals = 1) => {
+    if (!averageSampleSizes[metricKey]) return formatValue(null);
+    return averages[metricKey].toFixed(decimals);
+  };
+
   const skillLines = Object.entries(progression.skillXp)
     .map(([skill, xp]) => `<li>${skill}: ${xp} XP</li>`)
     .join("") || "<li>No data yet.</li>";
@@ -277,10 +294,14 @@ export function renderDashboard(state) {
 
   document.getElementById("dashboard-content").innerHTML = `
     ${tips}
-    <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+    <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
-      <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${averages.mood.toFixed(1)}</div></div>
+      <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${formatAverage("mood")}</div></div>
+      <div class="card"><strong>7-Day Avg Sleep (hrs)</strong><div class="metric">${formatAverage("sleepHours")}</div></div>
+      <div class="card"><strong>7-Day Avg Steps</strong><div class="metric">${formatAverage("steps", 0)}</div></div>
+      <div class="card"><strong>7-Day Avg Exercise Min</strong><div class="metric">${formatAverage("exerciseMinutes", 0)}</div></div>
+      <div class="card"><strong>7-Day Avg Calories</strong><div class="metric">${formatAverage("calories", 0)}</div></div>
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
