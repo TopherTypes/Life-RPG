@@ -47,4 +47,4 @@ Mandatory daily metrics:
 - Contribution rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 
 ## Status
-Planning phase. Product mechanics and formulas are intentionally documented with explicit TBD markers where final decisions are pending.
+Planning phase with MVP baseline mechanics now documented; remaining TBD items are tracked in `DECISIONS.md`.

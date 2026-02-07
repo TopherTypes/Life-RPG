@@ -22,7 +22,7 @@ This document separates MVP, V1, and deferred features.
   - XP gains
   - skill/stat progress
   - quest progress
-- Exact content composition is TBD.
+- Recap hierarchy: skill XP gains → attribute progress → quest progress.
 
 ### 4. Progress Tracking
 - Core analytics/trends to support self-awareness and planning.
@@ -32,7 +32,8 @@ This document separates MVP, V1, and deferred features.
 - Daily, weekly, and long-term quest hierarchy.
 - Template-driven quest setup.
 - Deadlines supported.
-- Milestones optional/TBD.
+- MVP quests are simple counter-based templates (e.g., complete 10 exercise sessions, complete 30 daily logs).
+- Milestones are optional and deferred for post-MVP tuning.
 
 ### 6. Storage and Platform
 - Web-only app.
@@ -67,8 +68,5 @@ This document separates MVP, V1, and deferred features.
 - Custom metrics
 
 ## Feature Notes Requiring Decision
-- Exact stat/skill model.
-- XP and level curve formulas.
-- Rest-day and missed-day penalty mechanics.
-- Quest failure/partial completion behavior.
-- Data validation and error handling rules.
+- Soft-penalty and rest-day mechanics (MVP Plus).
+- Mental health boundary/disclaimer language.
