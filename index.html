@@ -40,31 +40,38 @@
         <div class="grid">
           <div>
             <label for="entry-date">Date (required)</label>
-            <input id="entry-date" name="date" type="date" required />
+            <input id="entry-date" name="date" type="date" required aria-describedby="entry-date-error" />
+            <p id="entry-date-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="calories">Calories In</label>
-            <input id="calories" name="calories" type="number" min="0" />
+            <input id="calories" name="calories" type="number" min="0" aria-describedby="calories-error" />
+            <p id="calories-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="sleepHours">Sleep Hours</label>
-            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" />
+            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" aria-describedby="sleepHours-error" />
+            <p id="sleepHours-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="mood">Mood (1-10)</label>
-            <input id="mood" name="mood" type="number" min="1" max="10" />
+            <input id="mood" name="mood" type="number" min="1" max="10" aria-describedby="mood-error" />
+            <p id="mood-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="steps">Steps</label>
-            <input id="steps" name="steps" type="number" min="0" />
+            <input id="steps" name="steps" type="number" min="0" aria-describedby="steps-error" />
+            <p id="steps-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="exerciseMinutes">Exercise Minutes</label>
-            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" />
+            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" aria-describedby="exerciseMinutes-error" />
+            <p id="exerciseMinutes-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="exerciseEffort">Exercise Effort (1-10)</label>
-            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" />
+            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" aria-describedby="exerciseEffort-error" />
+            <p id="exerciseEffort-error" class="field-error" aria-live="polite"></p>
           </div>
         </div>
 

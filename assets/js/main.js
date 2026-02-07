@@ -12,6 +12,8 @@ import {
   renderQuestLog,
   hydrateSettings,
   setupRecapModalControls,
+  clearEntryFieldErrors,
+  showEntryFieldErrors,
 } from "./ui.js";
 
 const state = loadState();
@@ -32,7 +34,20 @@ function init() {
  * Adds listeners for all interactive elements.
  */
 function bindEvents() {
-  document.getElementById("entry-date").addEventListener("change", () => hydrateFormForDate(state));
+  document.getElementById("entry-date").addEventListener("change", () => {
+    clearEntryFieldErrors();
+    hydrateFormForDate(state);
+  });
+
+  // Clear individual field errors as soon as the user edits corresponding values.
+  document.querySelectorAll("#entry-form input").forEach((input) => {
+    input.addEventListener("input", () => {
+      const errorSlot = document.getElementById(`${input.id}-error`);
+      input.classList.remove("input-invalid");
+      input.removeAttribute("aria-invalid");
+      if (errorSlot) errorSlot.textContent = "";
+    });
+  });
   document.getElementById("entry-form").addEventListener("submit", onEntrySubmit);
   document.getElementById("save-weekly").addEventListener("click", saveWeeklyReview);
   document.getElementById("save-monthly").addEventListener("click", saveMonthlyReview);
@@ -71,19 +86,25 @@ function onEntrySubmit(event) {
   event.preventDefault();
   const entry = readEntryFromForm();
 
+  // Always reset stale inline errors before evaluating a new submit attempt.
+  clearEntryFieldErrors();
+
   if (!entry.date) {
+    showEntryFieldErrors({ "entry-date": ["Date is required."] });
     showMessages("entry-messages", ["Date is required."], "bad");
     return;
   }
 
   const existing = state.entries[entry.date];
   if (existing && !isEditable(entry.date)) {
+    showEntryFieldErrors({ "entry-date": ["This entry is read-only for edits."] });
     showMessages("entry-messages", ["This entry is read-only. Edit window (24h after day end) has expired."], "bad");
     return;
   }
 
   const validation = validateEntry(entry);
   if (validation.hardErrors.length) {
+    showEntryFieldErrors(validation.fieldErrors);
     showMessages("entry-messages", validation.hardErrors, "bad");
     return;
   }

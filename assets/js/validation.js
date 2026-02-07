@@ -17,24 +17,35 @@ export function validateEntry(entry) {
   const hardErrors = [];
   const softWarnings = [];
   const anomalies = [];
+  const fieldErrors = {};
+
+  /**
+   * Registers both an input-level and summary-level validation message.
+   */
+  const addFieldError = (fieldId, message) => {
+    if (!fieldErrors[fieldId]) fieldErrors[fieldId] = [];
+    fieldErrors[fieldId].push(message);
+    hardErrors.push(message);
+  };
 
   // Date plus one other metric is required. Empty numeric fields are currently ignored.
   const providedMetricCount = DAILY_FIELDS.filter((field) => entry[field] !== null).length;
   if (providedMetricCount < 1) {
-    hardErrors.push("Please provide at least one metric in addition to date.");
+    addFieldError("entry-date", "Please provide at least one metric in addition to date.");
   }
 
   if (entry.mood !== null && (entry.mood < 1 || entry.mood > 10)) {
-    hardErrors.push("Mood must be between 1 and 10.");
+    addFieldError("mood", "Mood must be between 1 and 10.");
   }
   if (entry.exerciseEffort !== null && (entry.exerciseEffort < 1 || entry.exerciseEffort > 10)) {
-    hardErrors.push("Exercise effort must be between 1 and 10.");
+    addFieldError("exerciseEffort", "Exercise effort must be between 1 and 10.");
   }
 
-  const nonNegativeFields = [entry.calories, entry.sleepHours, entry.steps, entry.exerciseMinutes];
-  if (nonNegativeFields.some((n) => n !== null && n < 0)) {
-    hardErrors.push("Calories, sleep, steps, and exercise minutes cannot be negative.");
-  }
+  ["calories", "sleepHours", "steps", "exerciseMinutes"].forEach((field) => {
+    if (entry[field] !== null && entry[field] < 0) {
+      addFieldError(field, "This value cannot be negative.");
+    }
+  });
 
   if (entry.sleepHours !== null && entry.sleepHours > 14) anomalies.push("Sleep > 14h");
   if (entry.steps !== null && entry.steps > 60000) anomalies.push("Steps > 60,000");
@@ -45,5 +56,5 @@ export function validateEntry(entry) {
     softWarnings.push(`Anomalies detected: ${anomalies.join(", ")}. Value included but flagged.`);
   }
 
-  return { hardErrors, softWarnings, anomalies };
+  return { hardErrors, softWarnings, anomalies, fieldErrors };
 }
