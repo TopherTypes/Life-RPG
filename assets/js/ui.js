@@ -328,19 +328,45 @@ export function renderQuestLog(state) {
 }
 
 /**
+ * Builds a short review summary from structured prompt fields.
+ * Falls back to legacy `text` records so existing saved data still renders correctly.
+ */
+function summarizeReview(review) {
+  const legacyText = typeof review?.text === "string" ? review.text.trim() : "";
+  if (legacyText) return escapeHtml(legacyText);
+
+  const fieldLabels = [
+    ["wins", "W"],
+    ["blockers", "B"],
+    ["nextAction", "N"],
+    ["confidence", "C"],
+  ];
+
+  // Render only populated fields to keep summaries compact and readable.
+  const parts = fieldLabels
+    .map(([key, shortLabel]) => {
+      const value = typeof review?.[key] === "string" ? review[key].trim() : "";
+      return value ? `<span><strong>${shortLabel}:</strong> ${escapeHtml(value)}</span>` : "";
+    })
+    .filter(Boolean);
+
+  return parts.join(" • ") || "No details provided.";
+}
+
+/**
  * Renders recent weekly/monthly review notes.
  */
 export function renderReviewsList(state) {
   const weekly = Object.entries(state.reviews.weekly)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${escapeHtml(review.text)}</li>`)
+    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
     .join("") || "<li>No weekly reviews yet.</li>";
 
   const monthly = Object.entries(state.reviews.monthly)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${escapeHtml(review.text)}</li>`)
+    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
     .join("") || "<li>No monthly reviews yet.</li>";
 
   document.getElementById("reviews-list").innerHTML = `
