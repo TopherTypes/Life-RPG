@@ -36,6 +36,7 @@ function bindEvents() {
   document.getElementById("entry-form").addEventListener("submit", onEntrySubmit);
   document.getElementById("save-weekly").addEventListener("click", saveWeeklyReview);
   document.getElementById("save-monthly").addEventListener("click", saveMonthlyReview);
+  document.getElementById("reviews-list").addEventListener("click", onReviewsListClick);
 
   document.getElementById("quest-log-content").addEventListener("click", (event) => {
     const button = event.target.closest(".quest-accept-btn");
@@ -141,6 +142,63 @@ function saveMonthlyReview() {
   persistState(state);
   showMessages("reviews-message", ["Monthly review saved."], "good");
   renderReviewsList(state);
+}
+
+/**
+ * Handles delegated review action clicks (edit/delete) for both weekly and monthly items.
+ */
+function onReviewsListClick(event) {
+  const actionButton = event.target.closest("[data-review-action]");
+  if (!actionButton) return;
+
+  const { reviewAction, reviewType, reviewPeriod } = actionButton.dataset;
+  if (!reviewAction || !reviewType || !reviewPeriod) return;
+
+  if (reviewAction === "edit") {
+    preloadReviewForEdit(reviewType, reviewPeriod);
+    return;
+  }
+
+  if (reviewAction === "delete") {
+    deleteReview(reviewType, reviewPeriod);
+  }
+}
+
+/**
+ * Loads an existing review into the relevant form inputs to support in-place editing.
+ */
+function preloadReviewForEdit(type, period) {
+  const review = state.reviews[type]?.[period];
+  if (!review) {
+    showMessages("reviews-message", ["Selected review no longer exists."], "bad");
+    return;
+  }
+
+  if (type === "weekly") {
+    document.getElementById("weekly-period").value = period;
+    document.getElementById("weekly-review").value = review.text;
+  } else {
+    document.getElementById("monthly-period").value = period;
+    document.getElementById("monthly-review").value = review.text;
+  }
+
+  renderReviewsList(state);
+  showMessages("reviews-message", [`Loaded ${type} review for ${period}. Update text and click Save.`], "good");
+}
+
+/**
+ * Deletes a review entry, persists state, and refreshes the list and feedback message.
+ */
+function deleteReview(type, period) {
+  if (!state.reviews[type]?.[period]) {
+    showMessages("reviews-message", ["Selected review no longer exists."], "bad");
+    return;
+  }
+
+  delete state.reviews[type][period];
+  persistState(state);
+  renderReviewsList(state);
+  showMessages("reviews-message", [`${type[0].toUpperCase() + type.slice(1)} review deleted for ${period}.`], "warn");
 }
 
 /**
