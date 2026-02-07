@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LifeRPG MVP Vertical Slice</title>
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+</head>
+<body>
+  <main class="app">
+    <h1>LifeRPG — MVP Vertical Slice</h1>
+    <p class="subtitle">Local-first daily tracking with progression recap, quests, trends, and guided reviews.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="daily">Daily Entry</button>
+      <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="reviews">Reviews</button>
+    </div>
+
+    <section id="daily" class="tab panel">
+      <h2>Daily Entry</h2>
+      <p class="muted">One entry per date. Entries can be edited for 24h after the logged day.</p>
+
+      <form id="entry-form">
+        <div class="grid">
+          <div>
+            <label for="entry-date">Date</label>
+            <input id="entry-date" name="date" type="date" required />
+          </div>
+          <div>
+            <label for="calories">Calories In</label>
+            <input id="calories" name="calories" type="number" min="0" required />
+          </div>
+          <div>
+            <label for="sleepHours">Sleep Hours</label>
+            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" required />
+          </div>
+          <div>
+            <label for="mood">Mood (1-10)</label>
+            <input id="mood" name="mood" type="number" min="1" max="10" required />
+          </div>
+          <div>
+            <label for="steps">Steps</label>
+            <input id="steps" name="steps" type="number" min="0" required />
+          </div>
+          <div>
+            <label for="exerciseMinutes">Exercise Minutes</label>
+            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" required />
+          </div>
+          <div>
+            <label for="exerciseEffort">Exercise Effort (1-10)</label>
+            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" required />
+          </div>
+        </div>
+
+        <div class="spacer-top">
+          <button class="primary" type="submit">Save Entry + Generate Recap</button>
+        </div>
+      </form>
+
+      <div id="entry-messages"></div>
+
+      <div id="recap" class="panel hidden spacer-top">
+        <h3>End-of-Entry Recap</h3>
+        <p class="muted">Hierarchy: skill XP gains → attribute progress → quest progress.</p>
+        <div id="recap-content"></div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="tab panel hidden">
+      <h2>Progress Dashboard</h2>
+      <div id="dashboard-content"></div>
+    </section>
+
+    <section id="reviews" class="tab panel hidden">
+      <h2>Weekly & Monthly Reviews</h2>
+      <p class="muted">Simple MVP guided prompts; stored locally for planning rituals.</p>
+
+      <div class="row">
+        <div class="card">
+          <h3>Weekly Review</h3>
+          <label for="weekly-period">Week Start Date</label>
+          <input id="weekly-period" type="date" />
+          <label for="weekly-review" class="label-top">What worked? What needs adjustment next week?</label>
+          <textarea id="weekly-review" placeholder="Examples: win of the week, blocker, one adjustment..."></textarea>
+          <button id="save-weekly" class="primary spacer-top" type="button">Save Weekly Review</button>
+        </div>
+
+        <div class="card">
+          <h3>Monthly Review</h3>
+          <label for="monthly-period">Month (YYYY-MM-01)</label>
+          <input id="monthly-period" type="date" />
+          <label for="monthly-review" class="label-top">What trend did you notice? What is your monthly focus?</label>
+          <textarea id="monthly-review" placeholder="Examples: strongest trend, weakest habit, next-month focus..."></textarea>
+          <button id="save-monthly" class="primary spacer-top" type="button">Save Monthly Review</button>
+        </div>
+      </div>
+
+      <div id="reviews-message"></div>
+      <div id="reviews-list" class="spacer-top"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/js/main.js"></script>
+</body>
+</html>
