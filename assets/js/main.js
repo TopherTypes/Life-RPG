@@ -19,6 +19,16 @@ import {
 const state = loadState();
 
 /**
+ * Formats a Date object to YYYY-MM-DD using local calendar components.
+ */
+function formatLocalDateISO(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Initializes app startup defaults and wires all UI handlers.
  */
 function init() {
@@ -154,7 +164,7 @@ function saveWeeklyReview() {
 
   state.reviews.weekly[period] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
-  showMessages("reviews-message", ["Weekly review saved."], "good");
+  showMessages("reviews-message", [`Weekly review saved to week starting ${normalizedPeriod} (Monday).`], "good");
   renderReviewsList(state);
 }
 
@@ -183,7 +193,7 @@ function saveMonthlyReview() {
 
   state.reviews.monthly[period] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
-  showMessages("reviews-message", ["Monthly review saved."], "good");
+  showMessages("reviews-message", [`Monthly review saved to ${normalizedPeriod} (first day of month).`], "good");
   renderReviewsList(state);
 }
 
