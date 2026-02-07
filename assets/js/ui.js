@@ -8,6 +8,18 @@ const recapState = {
 };
 
 /**
+ * Ephemeral pagination state for review history lists.
+ *
+ * This state is intentionally kept in-memory (not persisted) so the default
+ * view stays lightweight while still allowing users to progressively load
+ * older weekly/monthly reviews on demand.
+ */
+const reviewsUiState = {
+  weeklyLimit: 5,
+  monthlyLimit: 5,
+};
+
+/**
  * Renders contextual status messages into the target container.
  */
 export function showMessages(containerId, messages, style) {
@@ -459,12 +471,55 @@ export function renderReviewsList(state) {
     .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
     .join("") || "<li>No monthly reviews yet.</li>";
 
+  const weeklyShowMoreVisible = weeklyEntries.length > reviewsUiState.weeklyLimit;
+  const weeklyShowLessVisible = reviewsUiState.weeklyLimit > 5;
+  const monthlyShowMoreVisible = monthlyEntries.length > reviewsUiState.monthlyLimit;
+  const monthlyShowLessVisible = reviewsUiState.monthlyLimit > 5;
+
   document.getElementById("reviews-list").innerHTML = `
     <div class="row">
-      <div class="card"><h3>Recent Weekly Reviews</h3><ul>${weekly}</ul></div>
-      <div class="card"><h3>Recent Monthly Reviews</h3><ul>${monthly}</ul></div>
+      <div class="card">
+        <h3>Weekly Reviews</h3>
+        <ul>${weekly}</ul>
+        <div class="row">
+          ${weeklyShowMoreVisible ? '<button type="button" class="ghost review-pagination-btn" data-review-action="weekly-more">Show more</button>' : ""}
+          ${weeklyShowLessVisible ? '<button type="button" class="ghost review-pagination-btn" data-review-action="weekly-less">Show less</button>' : ""}
+        </div>
+      </div>
+      <div class="card">
+        <h3>Monthly Reviews</h3>
+        <ul>${monthly}</ul>
+        <div class="row">
+          ${monthlyShowMoreVisible ? '<button type="button" class="ghost review-pagination-btn" data-review-action="monthly-more">Show more</button>' : ""}
+          ${monthlyShowLessVisible ? '<button type="button" class="ghost review-pagination-btn" data-review-action="monthly-less">Show less</button>' : ""}
+        </div>
+      </div>
     </div>
   `;
+
+  // Rebind controls after each render because the list container is fully replaced.
+  document.querySelectorAll(".review-pagination-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const pageSize = 5;
+      switch (button.dataset.reviewAction) {
+        case "weekly-more":
+          reviewsUiState.weeklyLimit = Math.min(reviewsUiState.weeklyLimit + pageSize, weeklyEntries.length);
+          break;
+        case "weekly-less":
+          reviewsUiState.weeklyLimit = pageSize;
+          break;
+        case "monthly-more":
+          reviewsUiState.monthlyLimit = Math.min(reviewsUiState.monthlyLimit + pageSize, monthlyEntries.length);
+          break;
+        case "monthly-less":
+          reviewsUiState.monthlyLimit = pageSize;
+          break;
+        default:
+          return;
+      }
+      renderReviewsList(state);
+    });
+  });
 }
 
 /**
