@@ -23,11 +23,17 @@ Exit criteria:
 ## Milestone 1 — MVP Vertical Slice
 **Goal:** Deliver a usable local-first daily tracking loop.
 
+MVP priorities for this milestone:
+- Daily data entry.
+- Pattern/trend review.
+- Visible progress in skills/attributes.
+
 Target capabilities:
 - Daily entry form (manual inputs only).
 - One-entry-per-day model.
 - 24-hour edit window after day completion.
-- End-of-day recap with XP/stat progression signals.
+- End-of-day recap with XP/stat progression signals (skill XP → attribute progress → quest progress).
+- Simple counter-based quests (for example: 10 exercise sessions, 30 daily logs).
 - Basic dashboard with trend summaries.
 - LocalStorage persistence.
 

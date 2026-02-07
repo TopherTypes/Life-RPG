@@ -46,18 +46,18 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 ### 5.4 Progression Feedback
 - After submit, system shows recap with progression outcomes.
 - Recap should include XP/stat/quest change indicators.
-- Formula details for MVP are TBD.
+- MVP baseline formulas are documented in `DECISIONS.md` (Confirmed MVP Mechanics Baseline) and can be tuned after initial implementation.
 
 ### 5.5 Quests
 - System supports daily, weekly, and long-term quests.
 - Quest creation is template-driven.
 - Quests support deadlines.
-- Milestones are optional/TBD.
+- Milestones are optional and deferred for post-MVP tuning.
 - Quest dependency chains are out of scope.
 
 ### 5.6 Reviews
-- Weekly guided review required (final structure TBD).
-- Monthly guided review required (final structure TBD).
+- Weekly guided review required (final structure to be finalized in MVP Plus milestone).
+- Monthly guided review required (final structure to be finalized in MVP Plus milestone).
 
 ### 5.7 Data Persistence
 - LocalStorage is the only data store in MVP.
@@ -78,23 +78,18 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 - Monetization.
 
 ## 8. Open Specification Questions (TBD)
-1. Attribute/stat taxonomy.
-2. Skill definitions and count.
-3. XP formula and exact level curve.
-4. Soft-penalty model for missed days.
-5. Rest-day anti-abuse mechanism.
-6. Recovery/comeback mechanics.
-7. Quest failure and partial credit rules.
-8. Data validation and anomaly handling rules.
-9. Mood input scale design.
-10. Analytics event instrumentation strategy.
-
+1. Soft-penalty model for missed days (Milestone 2).
+2. Rest-day anti-abuse mechanism (Milestone 2).
+3. Recovery/comeback mechanics (Milestone 2).
+4. Analytics event instrumentation strategy.
+5. Mental health boundaries/disclaimers language.
+6. Weekly/monthly guided review templates and prompts.
 ## 9. Acceptance Criteria for MVP (Draft)
 - User can complete daily entry with required metrics.
 - Entry data persists across page reloads/browser restarts (same device/browser profile).
-- User receives a recap after submission.
+- User receives a recap after submission showing: skill XP gains, attribute progress, and quest progress.
 - User can review trend/progress summaries.
 - User can perform weekly and monthly review workflows.
 - Core loop is usable daily without external tools.
 
-> Note: acceptance criteria are draft and will be finalized once open mechanics decisions are resolved.
+> Note: acceptance criteria are draft and will be finalized with measurable thresholds in `DECISIONS.md` and milestone planning.
