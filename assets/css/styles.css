@@ -104,6 +104,23 @@ input, textarea, button {
 
 textarea { min-height: 110px; resize: vertical; }
 
+
+/*
+ * Field-level validation treatment for daily entry inputs.
+ * Keeps invalid state visually distinct while preserving dark-theme contrast.
+ */
+.input-invalid {
+  border-color: #cf4b4b;
+  box-shadow: 0 0 0 1px rgba(207, 75, 75, 0.35);
+}
+
+.field-error {
+  min-height: 1.1rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #ff9f9f;
+}
+
 button.primary {
   background: var(--accent-strong);
   border-color: #4e9cf4;
@@ -145,6 +162,15 @@ button:disabled {
 }
 
 .cards.compact { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+/* Keep dashboard summary cards readable as the metric set grows in normal and compact layouts. */
+.cards.dashboard-summary {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.cards.dashboard-summary.compact {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
 
 .card {
   background: #0f1724;
@@ -215,6 +241,36 @@ th, td {
   border-radius: 0.4rem 0.4rem 0.1rem 0.1rem;
   background: linear-gradient(180deg, #69c1ff, #2c6db8);
   transition: height 0.5s ease;
+}
+
+/* Visual treatment for days without mood input to distinguish missing data from low mood values. */
+.bar-missing {
+  min-height: 14px;
+  background: transparent;
+  border: 2px dashed #6c88a9;
+}
+
+.chart-legend {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.85rem;
+}
+
+.legend-chip {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin: 0 0.25rem 0 0.35rem;
+  border-radius: 0.2rem;
+  vertical-align: middle;
+}
+
+.legend-low {
+  background: linear-gradient(180deg, #69c1ff, #2c6db8);
+}
+
+.legend-missing {
+  background: transparent;
+  border: 2px dashed #6c88a9;
 }
 
 .modal {
