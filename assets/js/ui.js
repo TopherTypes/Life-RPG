@@ -1,6 +1,6 @@
 import { QUESTS, DAILY_FIELDS } from "./constants.js";
 import { avg, escapeHtml } from "./utils.js";
-import { computeSkillGains, computeProgression, levelFromXp } from "./progression.js";
+import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 
 const recapState = {
   pages: [],
@@ -224,6 +224,7 @@ function calculateBonusXp(entry) {
  */
 export function renderDashboard(state) {
   const progression = computeProgression(state.entries, state.acceptedQuests);
+  const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
   const latest7 = entries.slice(-7);
 
@@ -280,6 +281,9 @@ export function renderDashboard(state) {
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
+      <div class="card"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">consecutive days</div></div>
+      <div class="card"><strong>Longest Streak</strong><div class="metric">${streakMetrics.longestStreak}</div><div class="muted">best run</div></div>
+      <div class="card"><strong>This Week</strong><div class="metric">${streakMetrics.currentWeekCompletion}/7</div><div class="muted">days completed</div></div>
       <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${averages.mood.toFixed(1)}</div></div>
     </div>
 
