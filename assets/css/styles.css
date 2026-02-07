@@ -177,7 +177,11 @@ th, td {
   text-align: left;
 }
 
-.hidden { display: none; }
+/*
+ * Utility class used to force-hide components, including modal overlays.
+ * This must override component-level display rules (e.g. `.modal { display: flex; }`).
+ */
+.hidden { display: none !important; }
 .pill { display: inline-block; padding: 0.2rem 0.45rem; border-radius: 99px; background: #1d2a3a; font-size: 0.78rem; }
 .muted-pill { background: #26384d; color: #9ba8b6; }
 .spacer-top { margin-top: 0.9rem; }
