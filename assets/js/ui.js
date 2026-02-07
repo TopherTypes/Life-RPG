@@ -1,6 +1,6 @@
 import { QUESTS, DAILY_FIELDS } from "./constants.js";
 import { avg, escapeHtml } from "./utils.js";
-import { computeSkillGains, computeProgression, levelFromXp } from "./progression.js";
+import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 
 const recapState = {
   pages: [],
@@ -224,6 +224,7 @@ function calculateBonusXp(entry) {
  */
 export function renderDashboard(state) {
   const progression = computeProgression(state.entries, state.acceptedQuests);
+  const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
   const latest7 = entries.slice(-7);
 
