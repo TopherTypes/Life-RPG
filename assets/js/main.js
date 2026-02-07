@@ -1,4 +1,4 @@
-import { loadState, persistState } from "./storage.js";
+import { loadState, persistState, getDefaultState } from "./storage.js";
 import { todayISO } from "./utils.js";
 import { isEditable, validateEntry } from "./validation.js";
 import {
@@ -9,6 +9,9 @@ import {
   renderRecap,
   renderReviewsList,
   showMessages,
+  renderQuestLog,
+  hydrateSettings,
+  setupRecapModalControls,
 } from "./ui.js";
 
 const state = loadState();
@@ -18,14 +21,36 @@ const state = loadState();
  */
 function init() {
   setupTabs();
+  setupRecapModalControls();
   initializeFormDefaults();
-  renderDashboard(state);
-  renderReviewsList(state);
+  bindEvents();
+  hydrateSettings(state);
+  refreshAllViews();
+}
 
+/**
+ * Adds listeners for all interactive elements.
+ */
+function bindEvents() {
   document.getElementById("entry-date").addEventListener("change", () => hydrateFormForDate(state));
   document.getElementById("entry-form").addEventListener("submit", onEntrySubmit);
   document.getElementById("save-weekly").addEventListener("click", saveWeeklyReview);
   document.getElementById("save-monthly").addEventListener("click", saveMonthlyReview);
+
+  document.getElementById("quest-log-content").addEventListener("click", (event) => {
+    const button = event.target.closest(".quest-accept-btn");
+    if (!button) return;
+    const questId = button.dataset.questId;
+    state.acceptedQuests[questId] = true;
+    persistState(state);
+    refreshAllViews();
+    showMessages("entry-messages", ["Quest accepted and now tracking progress."], "good");
+  });
+
+  document.getElementById("setting-compact").addEventListener("change", onSettingsChange);
+  document.getElementById("setting-animations").addEventListener("change", onSettingsChange);
+  document.getElementById("setting-showtips").addEventListener("change", onSettingsChange);
+  document.getElementById("reset-account").addEventListener("click", resetAccount);
 }
 
 /**
@@ -79,7 +104,7 @@ function onEntrySubmit(event) {
   showMessages("entry-messages", messages, validation.softWarnings.length ? "warn" : "good");
 
   renderRecap(state.entries[entry.date], state);
-  renderDashboard(state);
+  refreshAllViews();
 }
 
 /**
@@ -115,6 +140,47 @@ function saveMonthlyReview() {
   state.reviews.monthly[period] = { text, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", ["Monthly review saved."], "good");
+  renderReviewsList(state);
+}
+
+/**
+ * Applies setting toggles and refreshes affected UI views.
+ */
+function onSettingsChange() {
+  state.settings.compactCards = document.getElementById("setting-compact").checked;
+  state.settings.enableAnimations = document.getElementById("setting-animations").checked;
+  state.settings.showTips = document.getElementById("setting-showtips").checked;
+  persistState(state);
+  refreshAllViews();
+  showMessages("settings-message", ["Settings updated."], "good");
+}
+
+/**
+ * Hard reset to a new account profile while preserving date defaults.
+ */
+function resetAccount() {
+  const fresh = getDefaultState();
+  state.entries = fresh.entries;
+  state.reviews = fresh.reviews;
+  state.acceptedQuests = fresh.acceptedQuests;
+  state.settings = fresh.settings;
+  persistState(state);
+
+  document.getElementById("entry-form").reset();
+  document.getElementById("weekly-review").value = "";
+  document.getElementById("monthly-review").value = "";
+  initializeFormDefaults();
+  hydrateSettings(state);
+  refreshAllViews();
+  showMessages("settings-message", ["Account reset complete. You are back at a fresh start."], "warn");
+}
+
+/**
+ * Re-renders all views that depend on persisted state.
+ */
+function refreshAllViews() {
+  renderDashboard(state);
+  renderQuestLog(state);
   renderReviewsList(state);
 }
 

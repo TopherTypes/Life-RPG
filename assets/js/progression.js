@@ -41,7 +41,7 @@ export function computeSkillGains(entry) {
 /**
  * Builds full progression from raw entries, ensuring deterministic recompute after edits.
  */
-export function computeProgression(entriesMap) {
+export function computeProgression(entriesMap, acceptedQuests = {}) {
   const orderedEntries = Object.values(entriesMap).sort((a, b) => a.date.localeCompare(b.date));
   const skillXp = {};
   let overallXp = 0;
@@ -61,14 +61,14 @@ export function computeProgression(entriesMap) {
     })
   );
 
-  const quests = computeQuestProgress(orderedEntries);
+  const quests = computeQuestProgress(orderedEntries, acceptedQuests);
   return { overallXp, skillXp, attributeXp, quests, orderedEntries };
 }
 
 /**
  * Computes current quest counters for long and weekly quest types.
  */
-export function computeQuestProgress(entries) {
+export function computeQuestProgress(entries, acceptedQuests = {}) {
   const logs = entries.length;
   const exerciseSessions = entries.filter((e) => e.exerciseMinutes > 0).length;
 
@@ -83,9 +83,16 @@ export function computeQuestProgress(entries) {
     return date >= weekStart;
   }).length;
 
+  // Tracking is blocked until each quest is explicitly accepted.
+  const withAcceptance = (key, current) => ({
+    current: acceptedQuests[key] ? current : 0,
+    target: QUESTS[key].target,
+    accepted: Boolean(acceptedQuests[key]),
+  });
+
   return {
-    dailyLog30: { current: logs, target: QUESTS.dailyLog30.target },
-    exercise10: { current: exerciseSessions, target: QUESTS.exercise10.target },
-    weekly7: { current: weeklyCount, target: QUESTS.weekly7.target },
+    dailyLog30: withAcceptance("dailyLog30", logs),
+    exercise10: withAcceptance("exercise10", exerciseSessions),
+    weekly7: withAcceptance("weekly7", weeklyCount),
   };
 }

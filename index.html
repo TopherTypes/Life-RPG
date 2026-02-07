@@ -11,45 +11,60 @@
     <h1>LifeRPG — MVP Vertical Slice</h1>
     <p class="subtitle">Local-first daily tracking with progression recap, quests, trends, and guided reviews.</p>
 
+    <section class="panel hero-panel">
+      <div>
+        <h2>Adventurer Dashboard</h2>
+        <p class="muted">Track habits, earn XP, and push quest progress every day.</p>
+      </div>
+      <button class="primary hero-action tab-btn" data-tab="daily">Log Daily Record</button>
+    </section>
+
     <div class="tabs">
-      <button class="tab-btn active" data-tab="daily">Daily Entry</button>
-      <button class="tab-btn" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="daily">Daily Entry</button>
+      <button class="tab-btn" data-tab="quests">Quest Log</button>
       <button class="tab-btn" data-tab="reviews">Reviews</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
     </div>
 
-    <section id="daily" class="tab panel">
+    <section id="dashboard" class="tab panel">
+      <h2>Progress Dashboard</h2>
+      <div id="dashboard-content"></div>
+    </section>
+
+    <section id="daily" class="tab panel hidden">
       <h2>Daily Entry</h2>
-      <p class="muted">One entry per date. Entries can be edited for 24h after the logged day.</p>
+      <p class="muted">Date is required plus at least one other metric. Blank metrics are ignored for now.</p>
 
       <form id="entry-form">
         <div class="grid">
           <div>
-            <label for="entry-date">Date</label>
+            <label for="entry-date">Date (required)</label>
             <input id="entry-date" name="date" type="date" required />
           </div>
           <div>
             <label for="calories">Calories In</label>
-            <input id="calories" name="calories" type="number" min="0" required />
+            <input id="calories" name="calories" type="number" min="0" />
           </div>
           <div>
             <label for="sleepHours">Sleep Hours</label>
-            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" required />
+            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" />
           </div>
           <div>
             <label for="mood">Mood (1-10)</label>
-            <input id="mood" name="mood" type="number" min="1" max="10" required />
+            <input id="mood" name="mood" type="number" min="1" max="10" />
           </div>
           <div>
             <label for="steps">Steps</label>
-            <input id="steps" name="steps" type="number" min="0" required />
+            <input id="steps" name="steps" type="number" min="0" />
           </div>
           <div>
             <label for="exerciseMinutes">Exercise Minutes</label>
-            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" required />
+            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" />
           </div>
           <div>
             <label for="exerciseEffort">Exercise Effort (1-10)</label>
-            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" required />
+            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" />
           </div>
         </div>
 
@@ -59,17 +74,12 @@
       </form>
 
       <div id="entry-messages"></div>
-
-      <div id="recap" class="panel hidden spacer-top">
-        <h3>End-of-Entry Recap</h3>
-        <p class="muted">Hierarchy: skill XP gains → attribute progress → quest progress.</p>
-        <div id="recap-content"></div>
-      </div>
     </section>
 
-    <section id="dashboard" class="tab panel hidden">
-      <h2>Progress Dashboard</h2>
-      <div id="dashboard-content"></div>
+    <section id="quests" class="tab panel hidden">
+      <h2>Quest Log</h2>
+      <p class="muted">Accept quests before they are tracked for progress.</p>
+      <div id="quest-log-content"></div>
     </section>
 
     <section id="reviews" class="tab panel hidden">
@@ -99,7 +109,40 @@
       <div id="reviews-message"></div>
       <div id="reviews-list" class="spacer-top"></div>
     </section>
+
+    <section id="settings" class="tab panel hidden">
+      <h2>Settings</h2>
+      <p class="muted">Change visual and behavior preferences for this local app profile.</p>
+      <div class="cards">
+        <div class="card">
+          <h3>Appearance</h3>
+          <label><input id="setting-compact" type="checkbox" /> Compact dashboard cards</label>
+          <label class="label-top"><input id="setting-animations" type="checkbox" checked /> Enable recap animations</label>
+        </div>
+        <div class="card">
+          <h3>Behavior</h3>
+          <label><input id="setting-showtips" type="checkbox" checked /> Show guidance tips on dashboard</label>
+          <button id="reset-account" class="danger spacer-top" type="button">Reset to New Account</button>
+        </div>
+      </div>
+      <div id="settings-message"></div>
+    </section>
   </main>
+
+  <div id="recap-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Daily Recap</h3>
+        <button id="close-recap" class="ghost" type="button">Close</button>
+      </div>
+      <div class="progress-dots" id="recap-dots"></div>
+      <div id="recap-steps"></div>
+      <div class="modal-actions">
+        <button id="recap-prev" class="ghost" type="button">Back</button>
+        <button id="recap-next" class="primary" type="button">Next</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="./assets/js/main.js"></script>
 </body>
