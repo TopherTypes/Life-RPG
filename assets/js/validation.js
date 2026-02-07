@@ -31,6 +31,16 @@ export function validateEntry(entry) {
     hardErrors.push("Exercise effort must be between 1 and 10.");
   }
 
+  // Exercise duration and effort must be logged together to avoid incomplete workout data.
+  if (entry.exerciseMinutes !== null && entry.exerciseMinutes > 0 && entry.exerciseEffort === null) {
+    hardErrors.push("Exercise effort is required when exercise minutes are greater than 0.");
+  }
+
+  // Effort without a positive duration is contradictory and should block save.
+  if (entry.exerciseEffort !== null && (entry.exerciseMinutes === null || entry.exerciseMinutes <= 0)) {
+    hardErrors.push("Exercise minutes must be greater than 0 when exercise effort is provided.");
+  }
+
   const nonNegativeFields = [entry.calories, entry.sleepHours, entry.steps, entry.exerciseMinutes];
   if (nonNegativeFields.some((n) => n !== null && n < 0)) {
     hardErrors.push("Calories, sleep, steps, and exercise minutes cannot be negative.");
