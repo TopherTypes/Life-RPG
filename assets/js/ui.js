@@ -417,6 +417,36 @@ function summarizeReview(review) {
  * Renders recent weekly/monthly review notes.
  */
 export function renderReviewsList(state) {
+  /**
+   * Renders one review item with consistent metadata and action hooks.
+   * Data attributes are used by delegated event handlers in main.js.
+   */
+  const renderReviewItem = (type, period, review) => `
+    <li class="review-item">
+      <div class="review-item-head">
+        <strong>${period}</strong>
+        <span class="muted">${type} review</span>
+      </div>
+      <p>${escapeHtml(review.text)}</p>
+      <div class="review-actions">
+        <button
+          type="button"
+          class="ghost review-edit-btn"
+          data-review-action="edit"
+          data-review-type="${type}"
+          data-review-period="${period}"
+        >Edit</button>
+        <button
+          type="button"
+          class="ghost review-delete-btn"
+          data-review-action="delete"
+          data-review-type="${type}"
+          data-review-period="${period}"
+        >Delete</button>
+      </div>
+    </li>
+  `;
+
   const weekly = Object.entries(state.reviews.weekly)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 5)
