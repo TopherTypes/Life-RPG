@@ -1,6 +1,6 @@
 import { QUESTS, DAILY_FIELDS } from "./constants.js";
 import { avg, escapeHtml } from "./utils.js";
-import { computeSkillGains, computeProgression, levelFromXp } from "./progression.js";
+import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 
 const recapState = {
   pages: [],
@@ -45,6 +45,39 @@ export function hydrateFormForDate(state) {
   DAILY_FIELDS.forEach((field) => {
     const input = document.getElementById(field);
     input.value = entry && entry[field] !== null ? entry[field] : "";
+  });
+}
+
+/**
+ * Clears all field-level validation UI and inline error messages.
+ */
+export function clearEntryFieldErrors() {
+  const form = document.getElementById("entry-form");
+  const inputs = form.querySelectorAll("input");
+
+  inputs.forEach((input) => {
+    input.classList.remove("input-invalid");
+    input.removeAttribute("aria-invalid");
+
+    const errorSlot = document.getElementById(`${input.id}-error`);
+    if (errorSlot) errorSlot.textContent = "";
+  });
+}
+
+/**
+ * Maps validation issues to individual form fields while preserving top-level summaries.
+ */
+export function showEntryFieldErrors(fieldErrors = {}) {
+  clearEntryFieldErrors();
+
+  Object.entries(fieldErrors).forEach(([fieldId, messages]) => {
+    const input = document.getElementById(fieldId);
+    const errorSlot = document.getElementById(`${fieldId}-error`);
+    if (!input || !errorSlot || !messages?.length) return;
+
+    input.classList.add("input-invalid");
+    input.setAttribute("aria-invalid", "true");
+    errorSlot.textContent = messages.join(" ");
   });
 }
 
@@ -224,6 +257,7 @@ function calculateBonusXp(entry) {
  */
 export function renderDashboard(state) {
   const progression = computeProgression(state.entries, state.acceptedQuests);
+  const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
   const latest7 = entries.slice(-7);
 
@@ -233,6 +267,23 @@ export function renderDashboard(state) {
     mood: avg(latest7.map((e) => e.mood).filter((v) => v !== null)),
     steps: avg(latest7.map((e) => e.steps).filter((v) => v !== null)),
     exerciseMinutes: avg(latest7.map((e) => e.exerciseMinutes).filter((v) => v !== null)),
+  };
+
+  // Track per-metric sample sizes so sparse datasets render with explicit placeholders, not misleading zeros.
+  const averageSampleSizes = {
+    calories: latest7.filter((entry) => entry.calories !== null).length,
+    sleepHours: latest7.filter((entry) => entry.sleepHours !== null).length,
+    mood: latest7.filter((entry) => entry.mood !== null).length,
+    steps: latest7.filter((entry) => entry.steps !== null).length,
+    exerciseMinutes: latest7.filter((entry) => entry.exerciseMinutes !== null).length,
+  };
+
+  /**
+   * Formats a 7-day average with an em dash fallback when not enough datapoints exist.
+   */
+  const formatAverage = (metricKey, decimals = 1) => {
+    if (!averageSampleSizes[metricKey]) return formatValue(null);
+    return averages[metricKey].toFixed(decimals);
   };
 
   const skillLines = Object.entries(progression.skillXp)
@@ -258,9 +309,13 @@ export function renderDashboard(state) {
 
   const moodBars = latest7
     .map((entry) => {
-      const mood = entry.mood || 0;
-      const height = Math.round((mood / 10) * 100);
-      return `<div class="bar-col"><div class="bar" style="height:${height}%"></div><span>${entry.date.slice(5)}</span></div>`;
+      // Distinguish explicit low mood values from missing mood logs to prevent misleading zero-height bars.
+      const isMissingMood = entry.mood === null;
+      const safeMood = isMissingMood ? 0 : entry.mood;
+      const height = Math.round((safeMood / 10) * 100);
+      const barClass = isMissingMood ? "bar bar-missing" : "bar";
+      const barTitle = isMissingMood ? "No mood data logged" : `Mood: ${entry.mood}/10`;
+      return `<div class="bar-col"><div class="${barClass}" style="height:${height}%" title="${barTitle}"></div><span>${entry.date.slice(5)}</span></div>`;
     })
     .join("");
 
@@ -277,13 +332,18 @@ export function renderDashboard(state) {
 
   document.getElementById("dashboard-content").innerHTML = `
     ${tips}
-    <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+    <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
-      <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${averages.mood.toFixed(1)}</div></div>
+      <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${formatAverage("mood")}</div></div>
+      <div class="card"><strong>7-Day Avg Sleep (hrs)</strong><div class="metric">${formatAverage("sleepHours")}</div></div>
+      <div class="card"><strong>7-Day Avg Steps</strong><div class="metric">${formatAverage("steps", 0)}</div></div>
+      <div class="card"><strong>7-Day Avg Exercise Min</strong><div class="metric">${formatAverage("exerciseMinutes", 0)}</div></div>
+      <div class="card"><strong>7-Day Avg Calories</strong><div class="metric">${formatAverage("calories", 0)}</div></div>
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
+    <p class="chart-legend muted">Legend: <span class="legend-chip legend-low" aria-hidden="true"></span> Filled bar = logged mood (including low values). <span class="legend-chip legend-missing" aria-hidden="true"></span> Hollow dotted bar = no data logged.</p>
     <div class="chart-wrap">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
 
     <h3 class="spacer-top">Recent Entries (Last 7)</h3>
@@ -328,6 +388,32 @@ export function renderQuestLog(state) {
 }
 
 /**
+ * Builds a short review summary from structured prompt fields.
+ * Falls back to legacy `text` records so existing saved data still renders correctly.
+ */
+function summarizeReview(review) {
+  const legacyText = typeof review?.text === "string" ? review.text.trim() : "";
+  if (legacyText) return escapeHtml(legacyText);
+
+  const fieldLabels = [
+    ["wins", "W"],
+    ["blockers", "B"],
+    ["nextAction", "N"],
+    ["confidence", "C"],
+  ];
+
+  // Render only populated fields to keep summaries compact and readable.
+  const parts = fieldLabels
+    .map(([key, shortLabel]) => {
+      const value = typeof review?.[key] === "string" ? review[key].trim() : "";
+      return value ? `<span><strong>${shortLabel}:</strong> ${escapeHtml(value)}</span>` : "";
+    })
+    .filter(Boolean);
+
+  return parts.join(" • ") || "No details provided.";
+}
+
+/**
  * Renders recent weekly/monthly review notes.
  */
 export function renderReviewsList(state) {
@@ -364,13 +450,13 @@ export function renderReviewsList(state) {
   const weekly = Object.entries(state.reviews.weekly)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 5)
-    .map(([period, review]) => renderReviewItem("weekly", period, review))
+    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
     .join("") || "<li>No weekly reviews yet.</li>";
 
   const monthly = Object.entries(state.reviews.monthly)
     .sort(([a], [b]) => b.localeCompare(a))
     .slice(0, 5)
-    .map(([period, review]) => renderReviewItem("monthly", period, review))
+    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
     .join("") || "<li>No monthly reviews yet.</li>";
 
   document.getElementById("reviews-list").innerHTML = `

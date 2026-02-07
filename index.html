@@ -40,31 +40,38 @@
         <div class="grid">
           <div>
             <label for="entry-date">Date (required)</label>
-            <input id="entry-date" name="date" type="date" required />
+            <input id="entry-date" name="date" type="date" required aria-describedby="entry-date-error" />
+            <p id="entry-date-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="calories">Calories In</label>
-            <input id="calories" name="calories" type="number" min="0" />
+            <input id="calories" name="calories" type="number" min="0" aria-describedby="calories-error" />
+            <p id="calories-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="sleepHours">Sleep Hours</label>
-            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" />
+            <input id="sleepHours" name="sleepHours" type="number" min="0" step="0.1" aria-describedby="sleepHours-error" />
+            <p id="sleepHours-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="mood">Mood (1-10)</label>
-            <input id="mood" name="mood" type="number" min="1" max="10" />
+            <input id="mood" name="mood" type="number" min="1" max="10" aria-describedby="mood-error" />
+            <p id="mood-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="steps">Steps</label>
-            <input id="steps" name="steps" type="number" min="0" />
+            <input id="steps" name="steps" type="number" min="0" aria-describedby="steps-error" />
+            <p id="steps-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="exerciseMinutes">Exercise Minutes</label>
-            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" />
+            <input id="exerciseMinutes" name="exerciseMinutes" type="number" min="0" aria-describedby="exerciseMinutes-error" />
+            <p id="exerciseMinutes-error" class="field-error" aria-live="polite"></p>
           </div>
           <div>
             <label for="exerciseEffort">Exercise Effort (1-10)</label>
-            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" />
+            <input id="exerciseEffort" name="exerciseEffort" type="number" min="1" max="10" aria-describedby="exerciseEffort-error" />
+            <p id="exerciseEffort-error" class="field-error" aria-live="polite"></p>
           </div>
         </div>
 
@@ -91,8 +98,14 @@
           <h3>Weekly Review</h3>
           <label for="weekly-period">Week Start Date</label>
           <input id="weekly-period" type="date" />
-          <label for="weekly-review" class="label-top">What worked? What needs adjustment next week?</label>
-          <textarea id="weekly-review" placeholder="Examples: win of the week, blocker, one adjustment..."></textarea>
+          <label for="weekly-wins" class="label-top">Wins</label>
+          <textarea id="weekly-wins" placeholder="Examples: best progress or highlights from this week..."></textarea>
+          <label for="weekly-blockers" class="label-top">Blockers</label>
+          <textarea id="weekly-blockers" placeholder="Examples: friction points that slowed you down..."></textarea>
+          <label for="weekly-next-action" class="label-top">Next Action</label>
+          <textarea id="weekly-next-action" placeholder="Examples: one concrete adjustment for next week..."></textarea>
+          <label for="weekly-confidence" class="label-top">Confidence</label>
+          <textarea id="weekly-confidence" placeholder="Examples: confidence score + reason (e.g., 8/10: plan feels realistic)"></textarea>
           <button id="save-weekly" class="primary spacer-top" type="button">Save Weekly Review</button>
         </div>
 
@@ -100,8 +113,14 @@
           <h3>Monthly Review</h3>
           <label for="monthly-period">Month (YYYY-MM-01)</label>
           <input id="monthly-period" type="date" />
-          <label for="monthly-review" class="label-top">What trend did you notice? What is your monthly focus?</label>
-          <textarea id="monthly-review" placeholder="Examples: strongest trend, weakest habit, next-month focus..."></textarea>
+          <label for="monthly-wins" class="label-top">Wins</label>
+          <textarea id="monthly-wins" placeholder="Examples: strongest trend or monthly highlights..."></textarea>
+          <label for="monthly-blockers" class="label-top">Blockers</label>
+          <textarea id="monthly-blockers" placeholder="Examples: recurring weak points this month..."></textarea>
+          <label for="monthly-next-action" class="label-top">Next Action</label>
+          <textarea id="monthly-next-action" placeholder="Examples: single focus for the upcoming month..."></textarea>
+          <label for="monthly-confidence" class="label-top">Confidence</label>
+          <textarea id="monthly-confidence" placeholder="Examples: confidence score + reason for next month plan..."></textarea>
           <button id="save-monthly" class="primary spacer-top" type="button">Save Monthly Review</button>
         </div>
       </div>
