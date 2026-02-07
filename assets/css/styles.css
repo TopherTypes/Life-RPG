@@ -1,11 +1,12 @@
 :root {
   color-scheme: dark;
-  --bg: #0d1117;
-  --panel: #161b22;
-  --panel-muted: #1f2937;
-  --border: #30363d;
+  --bg: #080c13;
+  --panel: #121a26;
+  --panel-muted: #1a2433;
+  --border: #2f3d52;
   --text: #e6edf3;
-  --accent: #58a6ff;
+  --accent: #6bb8ff;
+  --accent-strong: #317ad4;
 }
 
 * { box-sizing: border-box; }
@@ -13,22 +14,36 @@
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg);
+  background: radial-gradient(circle at top, #0f1a2d, var(--bg) 40%);
   color: var(--text);
   line-height: 1.45;
 }
 
 .app {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 1rem;
 }
 
 h1, h2, h3 { margin: 0.2rem 0 0.75rem; }
+h5 { margin: 0.3rem 0; }
 
 .subtitle {
   color: #9ba8b6;
   margin-bottom: 1rem;
+}
+
+.hero-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #10233b, #182f4f);
+}
+
+.hero-action {
+  max-width: 240px;
+  box-shadow: 0 0 0 1px rgba(107, 184, 255, 0.2), 0 6px 24px rgba(0, 0, 0, 0.25);
 }
 
 .tabs {
@@ -39,6 +54,7 @@ h1, h2, h3 { margin: 0.2rem 0 0.75rem; }
 }
 
 .tab-btn {
+  width: auto;
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--text);
@@ -89,11 +105,29 @@ input, textarea, button {
 textarea { min-height: 110px; resize: vertical; }
 
 button.primary {
-  background: #0c2d59;
-  border-color: #1f6feb;
+  background: var(--accent-strong);
+  border-color: #4e9cf4;
   color: #e6edf3;
   font-weight: 700;
   cursor: pointer;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: #3c526f;
+  cursor: pointer;
+}
+
+button.danger {
+  background: #5b1d28;
+  border-color: #9e3245;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
@@ -110,11 +144,17 @@ button.primary {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.cards.compact { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
 .card {
   background: #0f1724;
   border: 1px solid var(--border);
   border-radius: 0.65rem;
   padding: 0.7rem;
+}
+
+.quest-card {
+  background: linear-gradient(145deg, #111f32, #0e1524);
 }
 
 .metric {
@@ -139,8 +179,95 @@ th, td {
 
 .hidden { display: none; }
 .pill { display: inline-block; padding: 0.2rem 0.45rem; border-radius: 99px; background: #1d2a3a; font-size: 0.78rem; }
+.muted-pill { background: #26384d; color: #9ba8b6; }
 .spacer-top { margin-top: 0.9rem; }
+
+.chart-wrap {
+  height: 150px;
+  border: 1px solid #24415f;
+  border-radius: 0.65rem;
+  background: linear-gradient(180deg, #0d1929, #0e1320);
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.6rem;
+}
+
+.bar-col {
+  flex: 1;
+  min-width: 36px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+  color: #9ab5d4;
+  font-size: 0.75rem;
+}
+
+.bar {
+  width: 75%;
+  border-radius: 0.4rem 0.4rem 0.1rem 0.1rem;
+  background: linear-gradient(180deg, #69c1ff, #2c6db8);
+  transition: height 0.5s ease;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 8, 14, 0.76);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 20;
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  background: #0f1724;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+
+.modal-head,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.progress-dots {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #324358;
+}
+
+.dot-active { background: #78c2ff; }
+
+.recap-enter {
+  opacity: 0;
+  transform: translateY(10px) scale(0.99);
+}
+
+.recap-enter-active {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: all 220ms ease;
+}
 
 @media (max-width: 700px) {
   .app { padding: 0.6rem; }
+  .hero-panel { flex-direction: column; align-items: flex-start; }
+  .hero-action { max-width: 100%; }
 }
