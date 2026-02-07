@@ -129,36 +129,59 @@ function onEntrySubmit(event) {
 }
 
 /**
- * Persists weekly review text.
+ * Persists structured weekly review prompts for better summaries and planning.
  */
 function saveWeeklyReview() {
   const period = document.getElementById("weekly-period").value;
-  const text = document.getElementById("weekly-review").value.trim();
 
-  if (!period || !text) {
-    showMessages("reviews-message", ["Weekly review requires a week start date and text."], "bad");
+  // Capture each prompt independently so the review can be rendered as a compact summary later.
+  const prompts = {
+    wins: document.getElementById("weekly-wins").value.trim(),
+    blockers: document.getElementById("weekly-blockers").value.trim(),
+    nextAction: document.getElementById("weekly-next-action").value.trim(),
+    confidence: document.getElementById("weekly-confidence").value.trim(),
+  };
+
+  // Require a valid period and at least one filled prompt to avoid saving empty records.
+  if (!period || !Object.values(prompts).some(Boolean)) {
+    showMessages(
+      "reviews-message",
+      ["Weekly review requires a week start date and at least one prompt field."],
+      "bad"
+    );
     return;
   }
 
-  state.reviews.weekly[period] = { text, updatedAt: new Date().toISOString() };
+  state.reviews.weekly[period] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", ["Weekly review saved."], "good");
   renderReviewsList(state);
 }
 
 /**
- * Persists monthly review text.
+ * Persists structured monthly review prompts for high-signal trend snapshots.
  */
 function saveMonthlyReview() {
   const period = document.getElementById("monthly-period").value;
-  const text = document.getElementById("monthly-review").value.trim();
 
-  if (!period || !text) {
-    showMessages("reviews-message", ["Monthly review requires a month date and text."], "bad");
+  // Keep prompt schema aligned with weekly review for predictable rendering logic.
+  const prompts = {
+    wins: document.getElementById("monthly-wins").value.trim(),
+    blockers: document.getElementById("monthly-blockers").value.trim(),
+    nextAction: document.getElementById("monthly-next-action").value.trim(),
+    confidence: document.getElementById("monthly-confidence").value.trim(),
+  };
+
+  if (!period || !Object.values(prompts).some(Boolean)) {
+    showMessages(
+      "reviews-message",
+      ["Monthly review requires a month date and at least one prompt field."],
+      "bad"
+    );
     return;
   }
 
-  state.reviews.monthly[period] = { text, updatedAt: new Date().toISOString() };
+  state.reviews.monthly[period] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", ["Monthly review saved."], "good");
   renderReviewsList(state);
@@ -188,8 +211,19 @@ function resetAccount() {
   persistState(state);
 
   document.getElementById("entry-form").reset();
-  document.getElementById("weekly-review").value = "";
-  document.getElementById("monthly-review").value = "";
+  // Clear all review prompt fields to ensure a clean slate after account reset.
+  [
+    "weekly-wins",
+    "weekly-blockers",
+    "weekly-next-action",
+    "weekly-confidence",
+    "monthly-wins",
+    "monthly-blockers",
+    "monthly-next-action",
+    "monthly-confidence",
+  ].forEach((id) => {
+    document.getElementById(id).value = "";
+  });
   initializeFormDefaults();
   hydrateSettings(state);
   refreshAllViews();
