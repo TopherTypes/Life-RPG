@@ -17,6 +17,16 @@ import {
 const state = loadState();
 
 /**
+ * Formats a Date object to YYYY-MM-DD using local calendar components.
+ */
+function formatLocalDateISO(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Initializes app startup defaults and wires all UI handlers.
  */
 function init() {
@@ -111,17 +121,32 @@ function onEntrySubmit(event) {
  * Persists weekly review text.
  */
 function saveWeeklyReview() {
-  const period = document.getElementById("weekly-period").value;
+  const weeklyPeriodInput = document.getElementById("weekly-period");
+  const period = weeklyPeriodInput.value;
   const text = document.getElementById("weekly-review").value.trim();
 
   if (!period || !text) {
-    showMessages("reviews-message", ["Weekly review requires a week start date and text."], "bad");
+    showMessages(
+      "reviews-message",
+      ["Weekly review needs a date and text. Any selected date is automatically saved to that week's Monday."],
+      "bad",
+    );
     return;
   }
 
-  state.reviews.weekly[period] = { text, updatedAt: new Date().toISOString() };
+  /**
+   * Normalize the selected date to the Monday of the same week so storage keys
+   * remain consistent even when users pick a mid-week date.
+   */
+  const selectedDate = new Date(`${period}T00:00:00`);
+  const dayOffsetToMonday = (selectedDate.getDay() + 6) % 7;
+  selectedDate.setDate(selectedDate.getDate() - dayOffsetToMonday);
+  const normalizedPeriod = formatLocalDateISO(selectedDate);
+
+  weeklyPeriodInput.value = normalizedPeriod;
+  state.reviews.weekly[normalizedPeriod] = { text, updatedAt: new Date().toISOString() };
   persistState(state);
-  showMessages("reviews-message", ["Weekly review saved."], "good");
+  showMessages("reviews-message", [`Weekly review saved to week starting ${normalizedPeriod} (Monday).`], "good");
   renderReviewsList(state);
 }
 
@@ -129,17 +154,31 @@ function saveWeeklyReview() {
  * Persists monthly review text.
  */
 function saveMonthlyReview() {
-  const period = document.getElementById("monthly-period").value;
+  const monthlyPeriodInput = document.getElementById("monthly-period");
+  const period = monthlyPeriodInput.value;
   const text = document.getElementById("monthly-review").value.trim();
 
   if (!period || !text) {
-    showMessages("reviews-message", ["Monthly review requires a month date and text."], "bad");
+    showMessages(
+      "reviews-message",
+      ["Monthly review needs a date and text. Any selected date is automatically saved to the first day of that month."],
+      "bad",
+    );
     return;
   }
 
-  state.reviews.monthly[period] = { text, updatedAt: new Date().toISOString() };
+  /**
+   * Normalize the selected date to day 1 of the same month so monthly review
+   * records share a single canonical key regardless of the chosen day.
+   */
+  const selectedDate = new Date(`${period}T00:00:00`);
+  selectedDate.setDate(1);
+  const normalizedPeriod = formatLocalDateISO(selectedDate);
+
+  monthlyPeriodInput.value = normalizedPeriod;
+  state.reviews.monthly[normalizedPeriod] = { text, updatedAt: new Date().toISOString() };
   persistState(state);
-  showMessages("reviews-message", ["Monthly review saved."], "good");
+  showMessages("reviews-message", [`Monthly review saved to ${normalizedPeriod} (first day of month).`], "good");
   renderReviewsList(state);
 }
 
