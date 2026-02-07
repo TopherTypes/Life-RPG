@@ -226,6 +226,36 @@ th, td {
   transition: height 0.5s ease;
 }
 
+/* Visual treatment for days without mood input to distinguish missing data from low mood values. */
+.bar-missing {
+  min-height: 14px;
+  background: transparent;
+  border: 2px dashed #6c88a9;
+}
+
+.chart-legend {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.85rem;
+}
+
+.legend-chip {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin: 0 0.25rem 0 0.35rem;
+  border-radius: 0.2rem;
+  vertical-align: middle;
+}
+
+.legend-low {
+  background: linear-gradient(180deg, #69c1ff, #2c6db8);
+}
+
+.legend-missing {
+  background: transparent;
+  border: 2px dashed #6c88a9;
+}
+
 .modal {
   position: fixed;
   inset: 0;
