@@ -258,9 +258,13 @@ export function renderDashboard(state) {
 
   const moodBars = latest7
     .map((entry) => {
-      const mood = entry.mood || 0;
-      const height = Math.round((mood / 10) * 100);
-      return `<div class="bar-col"><div class="bar" style="height:${height}%"></div><span>${entry.date.slice(5)}</span></div>`;
+      // Distinguish explicit low mood values from missing mood logs to prevent misleading zero-height bars.
+      const isMissingMood = entry.mood === null;
+      const safeMood = isMissingMood ? 0 : entry.mood;
+      const height = Math.round((safeMood / 10) * 100);
+      const barClass = isMissingMood ? "bar bar-missing" : "bar";
+      const barTitle = isMissingMood ? "No mood data logged" : `Mood: ${entry.mood}/10`;
+      return `<div class="bar-col"><div class="${barClass}" style="height:${height}%" title="${barTitle}"></div><span>${entry.date.slice(5)}</span></div>`;
     })
     .join("");
 
@@ -284,6 +288,7 @@ export function renderDashboard(state) {
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
+    <p class="chart-legend muted">Legend: <span class="legend-chip legend-low" aria-hidden="true"></span> Filled bar = logged mood (including low values). <span class="legend-chip legend-missing" aria-hidden="true"></span> Hollow dotted bar = no data logged.</p>
     <div class="chart-wrap">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
 
     <h3 class="spacer-top">Recent Entries (Last 7)</h3>
