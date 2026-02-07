@@ -122,7 +122,28 @@ export function renderRecap(entry, state) {
  * Attaches modal controls once at startup.
  */
 export function setupRecapModalControls() {
-  document.getElementById("close-recap").addEventListener("click", closeRecapModal);
+  const closeButton = document.getElementById("close-recap");
+  const modal = document.getElementById("recap-modal");
+
+  closeButton.addEventListener("click", (event) => {
+    // Keep the close action deterministic even if the button is nested in other interactive wrappers.
+    event.preventDefault();
+    event.stopPropagation();
+    closeRecapModal();
+  });
+
+  // Allow closing by clicking the dimmed backdrop for a standard modal UX.
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeRecapModal();
+  });
+
+  // Support keyboard-driven dismissal for accessibility and fallback reliability.
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.getAttribute("aria-hidden") === "false") {
+      closeRecapModal();
+    }
+  });
+
   document.getElementById("recap-prev").addEventListener("click", () => {
     recapState.currentIndex = Math.max(0, recapState.currentIndex - 1);
     renderRecapPage();
@@ -135,11 +156,22 @@ export function setupRecapModalControls() {
     recapState.currentIndex += 1;
     renderRecapPage();
   });
+
+  // Enforce a closed state at startup in case the modal DOM was restored by browser session history.
+  closeRecapModal();
 }
 
 function closeRecapModal() {
-  document.getElementById("recap-modal").classList.add("hidden");
-  document.getElementById("recap-modal").setAttribute("aria-hidden", "true");
+  const modal = document.getElementById("recap-modal");
+
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+
+  // Reset recap internals so a stale page does not flash when the modal is reopened.
+  recapState.pages = [];
+  recapState.currentIndex = 0;
+  document.getElementById("recap-steps").innerHTML = "";
+  document.getElementById("recap-dots").innerHTML = "";
 }
 
 /**
