@@ -13,15 +13,19 @@ import {
   setupTabs,
   hydrateFormForDate,
   readEntryFromForm,
+  readProfileFromForm,
   renderDashboard,
   renderRecap,
   renderReviewsList,
   showMessages,
   renderQuestLog,
   hydrateSettings,
+  hydrateProfile,
   setupRecapModalControls,
   clearEntryFieldErrors,
   showEntryFieldErrors,
+  clearProfileFieldErrors,
+  showProfileFieldErrors,
 } from "./ui.js";
 
 const state = loadState();
@@ -45,6 +49,7 @@ function init() {
   initializeFormDefaults();
   bindEvents();
   hydrateSettings(state);
+  hydrateProfile(state);
   registerAnalyticsDebugApi();
   refreshAnalyticsDiagnostics();
   refreshAllViews();
@@ -95,6 +100,19 @@ function bindEvents() {
   document.getElementById("setting-animations").addEventListener("change", onSettingsChange);
   document.getElementById("setting-showtips").addEventListener("change", onSettingsChange);
   document.getElementById("reset-account").addEventListener("click", resetAccount);
+
+  // Profile listeners persist personalization inputs used for calorie guidance and TDEE estimation.
+  document.getElementById("save-profile").addEventListener("click", saveProfile);
+  ["profile-age", "profile-gender", "profile-height", "profile-weight", "profile-activity"].forEach((fieldId) => {
+    const input = document.getElementById(fieldId);
+    input.addEventListener("change", saveProfile);
+    input.addEventListener("input", () => {
+      const errorSlot = document.getElementById(`${fieldId}-error`);
+      input.classList.remove("input-invalid");
+      input.removeAttribute("aria-invalid");
+      if (errorSlot) errorSlot.textContent = "";
+    });
+  });
 
   // Diagnostics controls support manual QA of local-only analytics signals.
   document.getElementById("analytics-refresh").addEventListener("click", refreshAnalyticsDiagnostics);
@@ -362,6 +380,93 @@ function deleteReview(type, period) {
 }
 
 /**
+ * Validates profile data and calculates TDEE when enough fields are provided.
+ *
+ * This profile payload powers personalized calorie evaluation so recap/dashboard
+ * messaging can compare intake trends against an individualized energy baseline.
+ */
+function saveProfile() {
+  const profile = readProfileFromForm();
+  const fieldErrors = {};
+
+  const allowedGenders = new Set(["male", "female", "nonbinary", "prefer_not_to_say"]);
+  const allowedActivityLevels = new Set(["sedentary", "light", "moderate", "active", "very_active"]);
+
+  const addError = (fieldId, message) => {
+    if (!fieldErrors[fieldId]) fieldErrors[fieldId] = [];
+    fieldErrors[fieldId].push(message);
+  };
+
+  if (profile.age !== null && (profile.age < 10 || profile.age > 120)) {
+    addError("profile-age", "Age must be between 10 and 120.");
+  }
+  if (profile.gender !== null && !allowedGenders.has(profile.gender)) {
+    addError("profile-gender", "Select a supported gender option.");
+  }
+  if (profile.heightCm !== null && (profile.heightCm < 80 || profile.heightCm > 260)) {
+    addError("profile-height", "Height must be between 80 and 260 cm.");
+  }
+  if (profile.weightKg !== null && (profile.weightKg < 20 || profile.weightKg > 400)) {
+    addError("profile-weight", "Weight must be between 20 and 400 kg.");
+  }
+  if (profile.activityLevel !== null && !allowedActivityLevels.has(profile.activityLevel)) {
+    addError("profile-activity", "Select a supported activity level.");
+  }
+
+  const hasBaseFields = profile.age !== null && profile.heightCm !== null && profile.weightKg !== null;
+  const hasTdeeInputs = hasBaseFields && profile.gender !== null && profile.activityLevel !== null;
+
+  if (Object.keys(fieldErrors).length) {
+    showProfileFieldErrors(fieldErrors);
+    showMessages("settings-message", ["Profile update failed. Fix the highlighted fields and try again."], "bad");
+    return;
+  }
+
+  clearProfileFieldErrors();
+
+  // Use Mifflin-St Jeor + activity multipliers to estimate daily energy expenditure.
+  // This keeps calorie feedback individualized instead of relying on one-size-fits-all assumptions.
+  const activityMultipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    very_active: 1.9,
+  };
+
+  let tdee = null;
+  if (hasTdeeInputs) {
+    const genderConstant = profile.gender === "female" ? -161 : 5;
+    const bmr = (10 * profile.weightKg) + (6.25 * profile.heightCm) - (5 * profile.age) + genderConstant;
+    tdee = Math.round(bmr * activityMultipliers[profile.activityLevel]);
+  }
+
+  state.profile = {
+    ...state.profile,
+    ...profile,
+    tdee,
+    updatedAt: new Date().toISOString(),
+  };
+
+  document.getElementById("profile-tdee").value = tdee ?? "";
+  persistState(state);
+  refreshAllViews();
+
+  const incompleteMessage = hasBaseFields && !hasTdeeInputs
+    ? " Add gender and activity level to calculate TDEE."
+    : "";
+  showMessages(
+    "settings-message",
+    [
+      tdee !== null
+        ? `Profile saved. Estimated TDEE: ${tdee} kcal/day.`
+        : `Profile saved.${incompleteMessage}`,
+    ],
+    "good"
+  );
+}
+
+/**
  * Applies setting toggles and refreshes affected UI views.
  */
 function onSettingsChange() {
@@ -402,6 +507,7 @@ function resetAccount() {
   });
   initializeFormDefaults();
   hydrateSettings(state);
+  hydrateProfile(state);
   registerAnalyticsDebugApi();
   refreshAnalyticsDiagnostics();
   refreshAllViews();

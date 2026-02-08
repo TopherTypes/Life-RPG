@@ -127,6 +127,99 @@ export function readEntryFromForm() {
   };
 }
 
+
+/**
+ * Applies persisted profile values into settings form controls.
+ *
+ * Personalized calorie evaluation depends on profile factors (age, body size,
+ * biological sex marker, and activity multiplier), so we hydrate these fields
+ * on startup to keep TDEE guidance consistent across sessions.
+ */
+export function hydrateProfile(state) {
+  const profile = state.profile || {};
+
+  const setValue = (id, value) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.value = value === null || value === undefined ? "" : String(value);
+  };
+
+  setValue("profile-age", profile.age);
+  setValue("profile-gender", profile.gender);
+  setValue("profile-height", profile.heightCm);
+  setValue("profile-weight", profile.weightKg);
+  setValue("profile-activity", profile.activityLevel);
+  setValue("profile-tdee", profile.tdee !== null && profile.tdee !== undefined ? Math.round(profile.tdee) : "");
+
+  clearProfileFieldErrors();
+}
+
+/**
+ * Clears inline validation treatment for profile settings controls.
+ */
+export function clearProfileFieldErrors() {
+  ["profile-age", "profile-gender", "profile-height", "profile-weight", "profile-activity"].forEach((fieldId) => {
+    const input = document.getElementById(fieldId);
+    const errorSlot = document.getElementById(`${fieldId}-error`);
+    if (!input) return;
+    input.classList.remove("input-invalid");
+    input.removeAttribute("aria-invalid");
+    if (errorSlot) errorSlot.textContent = "";
+  });
+}
+
+/**
+ * Maps profile validation messages to field-level error placeholders.
+ */
+export function showProfileFieldErrors(fieldErrors = {}) {
+  clearProfileFieldErrors();
+
+  Object.entries(fieldErrors).forEach(([fieldId, messages]) => {
+    const input = document.getElementById(fieldId);
+    const errorSlot = document.getElementById(`${fieldId}-error`);
+    if (!input || !errorSlot || !messages?.length) return;
+
+    input.classList.add("input-invalid");
+    input.setAttribute("aria-invalid", "true");
+    errorSlot.textContent = messages.join(" ");
+  });
+}
+
+/**
+ * Reads and normalizes profile controls from Settings.
+ *
+ * This helper centralizes form parsing so controller code can validate once,
+ * calculate TDEE deterministically, and persist a schema-safe profile payload.
+ */
+export function readProfileFromForm() {
+  const parseOptionalNumber = (id) => {
+    const raw = document.getElementById(id).value.trim();
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const parseOptionalInteger = (id) => {
+    const raw = document.getElementById(id).value.trim();
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  };
+
+  const normalizeOptionalEnum = (id) => {
+    const raw = document.getElementById(id).value;
+    return raw ? raw : null;
+  };
+
+  return {
+    age: parseOptionalInteger("profile-age"),
+    gender: normalizeOptionalEnum("profile-gender"),
+    heightCm: parseOptionalNumber("profile-height"),
+    weightKg: parseOptionalNumber("profile-weight"),
+    activityLevel: normalizeOptionalEnum("profile-activity"),
+  };
+}
+
 /**
  * Renders and opens the three-step daily recap modal (skills -> attributes -> quests).
  */
