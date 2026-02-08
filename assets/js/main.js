@@ -16,6 +16,7 @@ import {
   readEntryFromForm,
   readProfileFromForm,
   renderDashboard,
+  renderMetricDetail,
   renderRecap,
   renderReviewsList,
   showMessages,
@@ -80,6 +81,8 @@ function bindEvents() {
   document.getElementById("save-weekly").addEventListener("click", saveWeeklyReview);
   document.getElementById("save-monthly").addEventListener("click", saveMonthlyReview);
   document.getElementById("reviews-list").addEventListener("click", onReviewsListClick);
+
+  document.getElementById("dashboard-content").addEventListener("click", onDashboardContentClick);
 
   document.getElementById("quest-log-content").addEventListener("click", (event) => {
     const button = event.target.closest(".quest-accept-btn");
@@ -760,10 +763,46 @@ function onTabSwitched({ tabId, triggerType }) {
 }
 
 /**
+ * Handles delegated dashboard interactions for metric drill-down navigation.
+ */
+function onDashboardContentClick(event) {
+  const trigger = event.target.closest("[data-metric-key]");
+  if (trigger) {
+    const { metricKey } = trigger.dataset;
+    renderMetricDetail(state, metricKey);
+
+    const overview = document.getElementById("dashboard-overview-content");
+    const detail = document.getElementById("dashboard-detail-content");
+    overview.classList.add("hidden");
+    detail.classList.remove("hidden");
+
+    return;
+  }
+
+  const backButton = event.target.closest("#dashboard-detail-back");
+  if (backButton) {
+    const overview = document.getElementById("dashboard-overview-content");
+    const detail = document.getElementById("dashboard-detail-content");
+    detail.classList.add("hidden");
+    detail.innerHTML = "";
+    overview.classList.remove("hidden");
+  }
+}
+
+/**
  * Re-renders all views that depend on persisted state.
  */
 function refreshAllViews() {
   renderDashboard(state);
+
+  // Preserve progressive enhancement: overview remains default while details are opt-in.
+  const overview = document.getElementById("dashboard-overview-content");
+  const detail = document.getElementById("dashboard-detail-content");
+  if (overview && detail) {
+    overview.classList.remove("hidden");
+    detail.classList.add("hidden");
+    detail.innerHTML = "";
+  }
   renderQuestLog(state);
   renderReviewsList(state);
 }

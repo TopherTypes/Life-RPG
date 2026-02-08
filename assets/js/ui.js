@@ -1,4 +1,4 @@
-import { QUESTS, DAILY_FIELDS } from "./constants.js";
+import { QUESTS, DAILY_FIELDS, DAILY_FIELD_LABELS } from "./constants.js";
 import { avg, escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
 import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 
@@ -18,6 +18,33 @@ const reviewsUiState = {
   weeklyLimit: 5,
   monthlyLimit: 5,
 };
+
+/**
+ * Shared metric metadata used by both dashboard overview cards and drill-down details.
+ *
+ * Keeping this metadata centralized guarantees labels, units, and formatting rules
+ * stay consistent without introducing per-metric hardcoded markup in renderers.
+ */
+const METRIC_DETAIL_META = {
+  calories: { label: DAILY_FIELD_LABELS.calories, unitLabel: "kcal", averageDecimals: 0, valueDecimals: 0 },
+  sleepHours: { label: DAILY_FIELD_LABELS.sleepHours, unitLabel: "hours", averageDecimals: 1, valueDecimals: 1 },
+  mood: { label: DAILY_FIELD_LABELS.mood, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
+  steps: { label: DAILY_FIELD_LABELS.steps, unitLabel: "steps", averageDecimals: 0, valueDecimals: 0 },
+  exerciseMinutes: { label: DAILY_FIELD_LABELS.exerciseMinutes, unitLabel: "minutes", averageDecimals: 0, valueDecimals: 0 },
+  exerciseEffort: { label: DAILY_FIELD_LABELS.exerciseEffort, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
+};
+
+/**
+ * Returns metadata for a metric key while preserving key names as fallback labels.
+ */
+function getMetricMeta(metricKey) {
+  return METRIC_DETAIL_META[metricKey] || {
+    label: DAILY_FIELD_LABELS[metricKey] || metricKey,
+    unitLabel: "",
+    averageDecimals: 1,
+    valueDecimals: 1,
+  };
+}
 
 /**
  * Renders contextual status messages into the target container.
@@ -435,6 +462,7 @@ export function renderDashboard(state) {
     mood: avg(latest7.map((e) => e.mood).filter((v) => v !== null)),
     steps: avg(latest7.map((e) => e.steps).filter((v) => v !== null)),
     exerciseMinutes: avg(latest7.map((e) => e.exerciseMinutes).filter((v) => v !== null)),
+    exerciseEffort: avg(latest7.map((e) => e.exerciseEffort).filter((v) => v !== null)),
   };
 
   // Track per-metric sample sizes so sparse datasets render with explicit placeholders, not misleading zeros.
@@ -444,6 +472,7 @@ export function renderDashboard(state) {
     mood: latest7.filter((entry) => entry.mood !== null).length,
     steps: latest7.filter((entry) => entry.steps !== null).length,
     exerciseMinutes: latest7.filter((entry) => entry.exerciseMinutes !== null).length,
+    exerciseEffort: latest7.filter((entry) => entry.exerciseEffort !== null).length,
   };
 
   /**
@@ -498,17 +527,29 @@ export function renderDashboard(state) {
     ? '<div class="msg good">Tip: Use the “Log Daily Record” button at the top to keep your streak and maximize bonus XP opportunities.</div>'
     : "";
 
-  document.getElementById("dashboard-content").innerHTML = `
+  // The specific metrics requested for drill-down are surfaced as interactive summary cards.
+  const detailMetricCards = [
+    { key: "mood", title: "7-Day Avg Mood" },
+    { key: "sleepHours", title: "7-Day Avg Sleep (hrs)" },
+    { key: "steps", title: "7-Day Avg Steps" },
+    { key: "exerciseMinutes", title: "7-Day Avg Exercise Min" },
+    { key: "exerciseEffort", title: "7-Day Avg Exercise Effort" },
+    { key: "calories", title: "7-Day Avg Calories" },
+  ]
+    .map(({ key, title }) => {
+      const meta = getMetricMeta(key);
+      const value = formatAverage(key, meta.averageDecimals);
+      return `<button class="card dashboard-metric-trigger" type="button" data-metric-key="${key}" aria-label="Open ${meta.label} details"><strong>${title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div></button>`;
+    })
+    .join("");
+
+  document.getElementById("dashboard-overview-content").innerHTML = `
     ${tips}
     <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
       <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)} • Calorie penalty ${formatPercent(progression.behavior.caloriePenaltyRate)}</div></div>
-      <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${formatAverage("mood")}</div></div>
-      <div class="card"><strong>7-Day Avg Sleep (hrs)</strong><div class="metric">${formatAverage("sleepHours")}</div></div>
-      <div class="card"><strong>7-Day Avg Steps</strong><div class="metric">${formatAverage("steps", 0)}</div></div>
-      <div class="card"><strong>7-Day Avg Exercise Min</strong><div class="metric">${formatAverage("exerciseMinutes", 0)}</div></div>
-      <div class="card"><strong>7-Day Avg Calories</strong><div class="metric">${formatAverage("calories", 0)}</div></div>
+      ${detailMetricCards}
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
@@ -537,6 +578,63 @@ export function renderDashboard(state) {
 
     <h3 class="spacer-top">Quest Highlights</h3>
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>
+  `;
+}
+
+/**
+ * Renders a metric-specific detail panel from shared metadata and recent entries.
+ */
+export function renderMetricDetail(state, metricKey) {
+  const detailContent = document.getElementById("dashboard-detail-content");
+  if (!detailContent) return;
+
+  if (!DAILY_FIELDS.includes(metricKey)) {
+    detailContent.innerHTML = '<div class="msg warn">Unsupported metric detail requested.</div>';
+    return;
+  }
+
+  const meta = getMetricMeta(metricKey);
+  const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
+  const orderedEntries = progression.orderedEntries;
+  const entriesWithMetric = orderedEntries.filter((entry) => entry[metricKey] !== null);
+  const latest7 = orderedEntries.slice(-7);
+  const latest7Metric = latest7.map((entry) => entry[metricKey]).filter((value) => value !== null);
+
+  const formatMetricValue = (value, decimals = meta.valueDecimals) => {
+    if (value === null || value === undefined) return formatValue(null);
+    return Number(value).toFixed(decimals);
+  };
+
+  const latestValue = entriesWithMetric.length ? entriesWithMetric[entriesWithMetric.length - 1][metricKey] : null;
+  const minValue = entriesWithMetric.length ? Math.min(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
+  const maxValue = entriesWithMetric.length ? Math.max(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
+  const last7Average = latest7Metric.length ? avg(latest7Metric) : null;
+
+  const recentRows = orderedEntries
+    .slice(-14)
+    .reverse()
+    .map((entry) => `<tr><td>${entry.date}</td><td>${formatMetricValue(entry[metricKey])}</td></tr>`)
+    .join("") || `<tr><td colspan="2">No entries yet.</td></tr>`;
+
+  detailContent.innerHTML = `
+    <div class="row dashboard-detail-head">
+      <button id="dashboard-detail-back" class="ghost" type="button" aria-label="Return to dashboard overview">← Back to overview</button>
+    </div>
+    <h3>${meta.label} Details</h3>
+    <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last 7 days sample size: ${latest7Metric.length}</p>
+
+    <div class="cards dashboard-summary">
+      <div class="card"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(latestValue)}</div></div>
+      <div class="card"><strong>7-Day Average</strong><div class="metric">${formatMetricValue(last7Average, meta.averageDecimals)}</div></div>
+      <div class="card"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(minValue)}</div></div>
+      <div class="card"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(maxValue)}</div></div>
+    </div>
+
+    <h4 class="spacer-top">Recent ${meta.label} Records (Last 14)</h4>
+    <table aria-label="Recent ${meta.label} records">
+      <thead><tr><th>Date</th><th>${meta.label}</th></tr></thead>
+      <tbody>${recentRows}</tbody>
+    </table>
   `;
 }
 

@@ -29,7 +29,10 @@
 
     <section id="dashboard" class="tab panel">
       <h2>Progress Dashboard</h2>
-      <div id="dashboard-content"></div>
+      <div id="dashboard-content" aria-live="polite" aria-label="Dashboard overview and metric detail views">
+        <div id="dashboard-overview-content" aria-label="Dashboard overview content"></div>
+        <div id="dashboard-detail-content" class="hidden" aria-label="Metric detail content"></div>
+      </div>
     </section>
 
     <section id="daily" class="tab panel hidden">

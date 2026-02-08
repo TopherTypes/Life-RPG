@@ -347,3 +347,21 @@ th, td {
 .onboarding-step h4 {
   margin-bottom: 0.6rem;
 }
+
+/*
+ * Dashboard metric cards are interactive entry points into per-metric drill-down views.
+ * Styling keeps visual parity with static cards while communicating clickability.
+ */
+button.card.dashboard-metric-trigger {
+  text-align: left;
+  cursor: pointer;
+}
+
+button.card.dashboard-metric-trigger:hover,
+button.card.dashboard-metric-trigger:focus-visible {
+  border-color: #4e9cf4;
+}
+
+.dashboard-detail-head {
+  margin-bottom: 0.5rem;
+}
