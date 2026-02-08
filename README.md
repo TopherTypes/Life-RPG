@@ -60,3 +60,37 @@ Active MVP vertical slice: core daily tracking, progression, and review workflow
 
 ## Planned Next
 The roadmap still includes future expansion work beyond the current vertical slice, including deeper progression systems, broader analytics, and post-MVP platform capabilities. See [`ROADMAP.md`](./ROADMAP.md) for sequencing and [`DECISIONS.md`](./DECISIONS.md) for open planning items.
+
+
+## Local-First Instrumentation (MVP)
+A lightweight analytics layer is implemented in `assets/js/analytics.js` with a single `track(eventName, payload)` entrypoint and a typed event catalog.
+
+### Event taxonomy
+- `daily_submit_success`
+- `daily_submit_fail` (categories: `missing_date`, `read_only`, `hard_validation`)
+- `review_saved`
+- `review_edited`
+- `review_deleted`
+- `quest_accepted`
+- `tab_switched`
+
+### Storage and diagnostics
+- Analytics are persisted locally in LocalStorage (`liferpg.analytics.v1`) with:
+  - `schemaVersion`
+  - `eventName`
+  - `timestamp` (ISO UTC)
+  - typed `payload`
+- In-app diagnostics are available under **Settings → Analytics Diagnostics (Local)** for:
+  - refresh snapshot,
+  - copy JSON,
+  - clear event log.
+- Console diagnostics are also available through:
+  - `window.lifeRpgAnalytics.export()`
+  - `window.lifeRpgAnalytics.exportJson()`
+  - `window.lifeRpgAnalytics.exportToConsole()`
+  - `window.lifeRpgAnalytics.clear()`
+
+### Privacy expectations
+- No analytics network transport is implemented.
+- Events remain on-device unless the user manually copies/exports JSON.
+- Payloads should avoid free-form sensitive content; use categories/counts/ids.

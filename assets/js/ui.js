@@ -30,11 +30,23 @@ export function showMessages(containerId, messages, style) {
 /**
  * Activates tab button interactions for section switching.
  */
-export function setupTabs() {
+export function setupTabs(onTabSwitch) {
   const navTabs = document.querySelectorAll(".tabs .tab-btn[data-tab]");
   const allTabTriggers = document.querySelectorAll("[data-tab]");
   allTabTriggers.forEach((tabBtn) => {
-    tabBtn.addEventListener("click", () => activateTab(tabBtn.dataset.tab, navTabs));
+    tabBtn.addEventListener("click", () => {
+      const tabId = tabBtn.dataset.tab;
+      activateTab(tabId, navTabs);
+
+      // Optional callback allows callers to instrument engagement funnels
+      // without coupling analytics logic into view rendering internals.
+      if (typeof onTabSwitch === "function") {
+        onTabSwitch({
+          tabId,
+          triggerType: tabBtn.classList.contains("hero-action") ? "hero-cta" : "nav-tab",
+        });
+      }
+    });
   });
 }
 
@@ -431,7 +443,7 @@ function summarizeReview(review) {
 export function renderReviewsList(state) {
   /**
    * Renders one review item with consistent metadata and action hooks.
-   * Data attributes are used by delegated event handlers in main.js.
+   * Data attributes are consumed by delegated event handlers in main.js.
    */
   const renderReviewItem = (type, period, review) => `
     <li class="review-item">
@@ -439,7 +451,7 @@ export function renderReviewsList(state) {
         <strong>${period}</strong>
         <span class="muted">${type} review</span>
       </div>
-      <p>${escapeHtml(review.text)}</p>
+      <p>${summarizeReview(review)}</p>
       <div class="review-actions">
         <button
           type="button"
@@ -459,22 +471,24 @@ export function renderReviewsList(state) {
     </li>
   `;
 
-  const weekly = Object.entries(state.reviews.weekly)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
-    .join("") || "<li>No weekly reviews yet.</li>";
+  const pageSize = 5;
+  const weeklyEntries = Object.entries(state.reviews.weekly).sort(([a], [b]) => b.localeCompare(a));
+  const monthlyEntries = Object.entries(state.reviews.monthly).sort(([a], [b]) => b.localeCompare(a));
 
-  const monthly = Object.entries(state.reviews.monthly)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
-    .join("") || "<li>No monthly reviews yet.</li>";
+  const weekly = weeklyEntries
+    .slice(0, reviewsUiState.weeklyLimit)
+    .map(([period, review]) => renderReviewItem("weekly", period, review))
+    .join("") || '<li class="review-item">No weekly reviews yet.</li>';
+
+  const monthly = monthlyEntries
+    .slice(0, reviewsUiState.monthlyLimit)
+    .map(([period, review]) => renderReviewItem("monthly", period, review))
+    .join("") || '<li class="review-item">No monthly reviews yet.</li>';
 
   const weeklyShowMoreVisible = weeklyEntries.length > reviewsUiState.weeklyLimit;
-  const weeklyShowLessVisible = reviewsUiState.weeklyLimit > 5;
+  const weeklyShowLessVisible = reviewsUiState.weeklyLimit > pageSize;
   const monthlyShowMoreVisible = monthlyEntries.length > reviewsUiState.monthlyLimit;
-  const monthlyShowLessVisible = reviewsUiState.monthlyLimit > 5;
+  const monthlyShowLessVisible = reviewsUiState.monthlyLimit > pageSize;
 
   document.getElementById("reviews-list").innerHTML = `
     <div class="row">
@@ -497,10 +511,9 @@ export function renderReviewsList(state) {
     </div>
   `;
 
-  // Rebind controls after each render because the list container is fully replaced.
+  // Rebind pagination controls after each render because list content is replaced.
   document.querySelectorAll(".review-pagination-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      const pageSize = 5;
       switch (button.dataset.reviewAction) {
         case "weekly-more":
           reviewsUiState.weeklyLimit = Math.min(reviewsUiState.weeklyLimit + pageSize, weeklyEntries.length);
