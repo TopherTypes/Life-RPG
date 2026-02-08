@@ -225,7 +225,7 @@ export function readProfileFromForm() {
  */
 export function renderRecap(entry, state) {
   const gains = computeSkillGains(entry);
-  const progression = computeProgression(state.entries, state.acceptedQuests);
+  const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
 
   const baseXp = 20;
   const bonusXp = calculateBonusXp(entry);
@@ -258,12 +258,13 @@ export function renderRecap(entry, state) {
 
   const behaviorSummary = progression.behavior;
   const behaviorMessage = behaviorSummary.restDay.message;
+  const behaviorExplanation = describeBehaviorAdjustment(behaviorSummary);
   const behaviorHint = behaviorSummary.recoveryXp > 0
-    ? `Recovery boost active (+${behaviorSummary.recoveryXp} XP).`
-    : "Recovery boost activates after a short comeback streak.";
+    ? `Recovery boost active (+${behaviorSummary.recoveryXp} XP). ${behaviorExplanation.recoveryText}`
+    : behaviorExplanation.recoveryText;
 
   recapState.pages = [
-    `<div class="recap-page active"><h4>1) Skills</h4><p class="muted">Base XP: +${baseXp} XP • Bonus XP: +${bonusXp.total} XP • Total: +${totalXp} XP</p><table><thead><tr><th>Skill</th><th>Gain</th></tr></thead><tbody>${skillRows}</tbody></table><h5 class="spacer-top">Bonus XP Breakdown</h5>${bonusReasons}<h5 class="spacer-top">Behavior Mechanics</h5><p class="muted">Penalty rate: ${formatPercent(behaviorSummary.penaltyRate)} • Recovery rate: ${formatPercent(behaviorSummary.recoveryRate)}</p><p>${behaviorHint}</p><p class="muted">${behaviorMessage}</p></div>`,
+    `<div class="recap-page active"><h4>1) Skills</h4><p class="muted">Base XP: +${baseXp} XP • Bonus XP: +${bonusXp.total} XP • Total: +${totalXp} XP</p><table><thead><tr><th>Skill</th><th>Gain</th></tr></thead><tbody>${skillRows}</tbody></table><h5 class="spacer-top">Bonus XP Breakdown</h5>${bonusReasons}<h5 class="spacer-top">Behavior Mechanics</h5><p class="muted">Penalty rate: ${formatPercent(behaviorSummary.penaltyRate)} • Recovery rate: ${formatPercent(behaviorSummary.recoveryRate)}</p><p>${behaviorExplanation.penaltyText}</p><p>${behaviorHint}</p><p class="muted">${behaviorMessage}</p></div>`,
     `<div class="recap-page"><h4>2) Attributes</h4><div class="cards">${attributeCards}</div></div>`,
     `<div class="recap-page"><h4>3) Quests</h4><table><thead><tr><th>Quest</th><th>Progress</th></tr></thead><tbody>${questRows}</tbody></table></div>`,
   ];
@@ -377,6 +378,29 @@ function calculateBonusXp(entry) {
 
 
 /**
+ * Builds clear user-facing behavior copy showing penalty/recovery contributors.
+ */
+function describeBehaviorAdjustment(behaviorSummary) {
+  const penaltyDrivers = [];
+  if (behaviorSummary.missedDayPenaltyRate > 0) penaltyDrivers.push("missed days");
+  if (behaviorSummary.caloriePenaltyRate > 0) penaltyDrivers.push("calorie deviation");
+
+  const recoveryDrivers = [];
+  if ((behaviorSummary.recoveryRate - behaviorSummary.calorieRecoveryRate) > 0) recoveryDrivers.push("comeback streak");
+  if (behaviorSummary.calorieRecoveryRate > 0) recoveryDrivers.push("calorie adherence");
+
+  const penaltyText = penaltyDrivers.length
+    ? `Penalty applied from ${penaltyDrivers.join(" + ")}.`
+    : "No penalty applied today.";
+
+  const recoveryText = recoveryDrivers.length
+    ? `Recovery bonus supported by ${recoveryDrivers.join(" + ")}.`
+    : "No recovery bonus yet—keep building consistency.";
+
+  return { penaltyText, recoveryText };
+}
+
+/**
  * Formats behavior rates as a human-readable percentage string.
  */
 function formatPercent(rate) {
@@ -387,7 +411,7 @@ function formatPercent(rate) {
  * Renders the dashboard aggregate and 7-day trend summary views.
  */
 export function renderDashboard(state) {
-  const progression = computeProgression(state.entries, state.acceptedQuests);
+  const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
   const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
   const latest7 = entries.slice(-7);
@@ -466,7 +490,7 @@ export function renderDashboard(state) {
     <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
-      <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
+      <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)} • Calorie penalty ${formatPercent(progression.behavior.caloriePenaltyRate)}</div></div>
       <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${formatAverage("mood")}</div></div>
       <div class="card"><strong>7-Day Avg Sleep (hrs)</strong><div class="metric">${formatAverage("sleepHours")}</div></div>
       <div class="card"><strong>7-Day Avg Steps</strong><div class="metric">${formatAverage("steps", 0)}</div></div>
@@ -493,7 +517,8 @@ export function renderDashboard(state) {
     <h3 class="spacer-top">Behavior Mechanics</h3>
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
-      <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.penaltyRate)}</div><div class="muted">A gentle modifier that can be reduced by logging consistently.</div></div>
+      <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
+      <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized TDEE range when profile data is complete.</div></div>
       <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
     </div>
 
@@ -506,7 +531,7 @@ export function renderDashboard(state) {
  * Renders quest acceptance controls and progress in a dedicated quest log.
  */
 export function renderQuestLog(state) {
-  const progression = computeProgression(state.entries, state.acceptedQuests);
+  const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
 
   const rows = Object.entries(QUESTS)
     .map(([key, quest]) => {

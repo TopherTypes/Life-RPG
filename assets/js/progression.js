@@ -42,7 +42,7 @@ export function computeSkillGains(entry) {
 /**
  * Builds full progression from raw entries, ensuring deterministic recompute after edits.
  */
-export function computeProgression(entriesMap, acceptedQuests = {}) {
+export function computeProgression(entriesMap, acceptedQuests = {}, profile = {}) {
   const orderedDateKeys = Object.keys(entriesMap).sort((a, b) => a.localeCompare(b));
   const orderedEntries = orderedDateKeys.map((dateKey) => entriesMap[dateKey]);
   const skillXp = {};
@@ -56,7 +56,7 @@ export function computeProgression(entriesMap, acceptedQuests = {}) {
     });
   });
 
-  const behavior = evaluateBehaviorMechanics(orderedDateKeys);
+  const behavior = evaluateBehaviorMechanics(orderedDateKeys, entriesMap, profile);
   const xpAdjustments = applyBehaviorXpAdjustments(baseOverallXp, behavior.penaltyRate, behavior.recoveryRate);
   const overallXp = xpAdjustments.adjustedOverallXp;
 
