@@ -724,93 +724,107 @@ export function renderDashboard(state) {
   const isExpandedMetrics = state.settings.dashboardExpandedMetrics === true;
 
   const behaviorHealthPercent = Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100);
+  const completionPercent = latestEntry ? Math.round((latestEntryCompletionCount / 5) * 100) : 0;
+  const questCompletionRate = questsAnalysis.aggregates.totalQuests
+    ? Math.round((questsAnalysis.aggregates.completedCount / questsAnalysis.aggregates.totalQuests) * 100)
+    : 0;
+  const acceptedQuestCount = questsAnalysis.aggregates.acceptedCount || 0;
 
+  // Dashboard overview intentionally prioritizes one-screen scannability first,
+  // with deeper analytics hidden behind card drill-down interactions.
   document.getElementById("dashboard-overview-content").innerHTML = `
     ${tips}
-    <section class="dashboard-section" aria-label="Today's snapshot">
-      <h3>Today’s Snapshot</h3>
-      <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
-        <div class="card card--summary"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
-        <div class="card card--summary"><strong>Behavior Health</strong><div class="metric">${behaviorHealthPercent}%</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
-        <div class="card card--summary"><strong>Primary Trend: Mood</strong><div class="metric">${moodAverage}</div><div class="muted">${moodTrendLabel} • Latest ${latestMoodPoint ? `${latestMoodPoint.value}/10` : "—"}</div></div>
-        <div class="card card--summary"><strong>Action</strong><div class="metric">Log today</div><div class="muted">Capture today’s entry to protect streak momentum.</div><button type="button" class="primary" data-tab="daily">Open Daily Entry</button></div>
-      </div>
-    </section>
-
-    <section class="dashboard-section dashboard-section--compact" aria-label="Trend overview">
-      <h3>Trend Focus</h3>
-      <p class="chart-legend muted">Mood (last 7): <span class="legend-chip legend-low" aria-hidden="true"></span> logged • <span class="legend-chip legend-missing" aria-hidden="true"></span> missing</p>
-      <div class="chart-wrap chart-wrap--compact">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
-    </section>
-
-    <section class="dashboard-section" aria-label="Action center">
-      <h3>Action Center</h3>
-      <div class="cards ${state.settings.compactCards ? "compact" : ""}">
-        <div class="card card--summary"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div><div class="muted">Total logged days: ${entries.length}</div></div>
-        <div class="card card--summary"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
-        <div class="card card--summary"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Baseline: ${tdeeSummary.baselineTdee ?? "—"} kcal/day</div></div>
-      </div>
-
-      <details class="dashboard-details">
-        <summary>Show details: Skills</summary>
-        <ul>${skillLines}</ul>
-      </details>
-
-      <details class="dashboard-details">
-        <summary>Show details: Attributes</summary>
-        <div class="cards ${state.settings.compactCards ? "compact" : ""}">${attributeCards}</div>
-      </details>
-
-      <details class="dashboard-details">
-        <summary>Show details: Behavior mechanics internals</summary>
-        <div class="cards ${state.settings.compactCards ? "compact" : ""}">
-          <div class="card card--summary"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
-          <div class="card card--summary"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
-          <div class="card card--summary"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
-          <div class="card card--summary"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
+    <section class="dashboard-shell" aria-label="One-screen dashboard overview">
+      <article class="dashboard-hero">
+        <div>
+          <p class="dashboard-kicker">Control Center</p>
+          <h3>Today at a glance</h3>
+          <p class="muted">${notableChange}</p>
         </div>
-      </details>
+        <div class="dashboard-hero-stat">
+          <span>Current streak</span>
+          <strong>${streakMetrics.currentStreak}</strong>
+          <small>Longest ${streakMetrics.longestStreak}</small>
+        </div>
+      </article>
 
-      <details class="dashboard-details">
-        <summary>Show details: Quest highlights</summary>
-        <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>
-      </details>
-    </section>
+      <section class="dashboard-grid" aria-label="Primary summary panels">
+        <article class="dashboard-focus-card">
+          <h4>Momentum mix</h4>
+          <div class="dashboard-ring" style="--ring-value:${Math.max(0, Math.min(100, behaviorHealthPercent))};">
+            <strong>${behaviorHealthPercent}%</strong>
+            <span>Behavior health</span>
+          </div>
+          <div class="dashboard-focus-list">
+            <span><strong>Mood</strong><em>${moodAverage}</em></span>
+            <span><strong>Logs</strong><em>${loggedDaysInWindow}/7 days</em></span>
+            <span><strong>Completed quests</strong><em>${questCompletionRate}%</em></span>
+          </div>
+        </article>
 
-    <section class="dashboard-section" aria-label="Deep analytics">
-      <h3>Deep Analytics</h3>
-      <p class="muted">Open a card when you want a full diagnostics drill-down.</p>
-      <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
-        ${defaultMetricCards}
-        <button
-          class="card card--summary dashboard-metric-expand-toggle"
-          type="button"
-          data-dashboard-metrics-toggle
-          aria-expanded="${isExpandedMetrics}"
-          aria-controls="dashboard-extended-metrics"
-        >
-          <strong>${isExpandedMetrics ? "Fewer metrics" : "More metrics"}</strong>
-          <div class="metric">${metricCardGroups.extended.length}</div>
-          <div class="muted">${isExpandedMetrics ? "Hide non-critical cards" : "Show extended analytics"}</div>
-        </button>
-      </div>
+        <article class="dashboard-focus-card dashboard-focus-card--trend">
+          <h4>Mood pulse (7 days)</h4>
+          <p class="chart-legend muted">Logged vs missing</p>
+          <div class="chart-wrap chart-wrap--compact">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
+        </article>
 
-      <div
-        id="dashboard-extended-metrics"
-        class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}"
-        ${isExpandedMetrics ? "" : "hidden"}
-        aria-label="Extended metrics"
-      >
-        ${extendedMetricCards}
-      </div>
+        <article class="dashboard-focus-card">
+          <h4>Action queue</h4>
+          <div class="dashboard-progress-stack">
+            <label>Today completion <strong>${completionPercent}%</strong></label>
+            <div class="dashboard-progress"><span style="width:${completionPercent}%"></span></div>
+            <small>${latestEntryCompletionLabel}</small>
+          </div>
+          <div class="dashboard-progress-stack">
+            <label>Accepted quests <strong>${acceptedQuestCount}/${questsAnalysis.aggregates.totalQuests || 0}</strong></label>
+            <div class="dashboard-progress"><span style="width:${Math.max(5, Math.min(100, Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)))}%"></span></div>
+            <small>${reviewsAnalysis.aggregates.totalCount || 0} saved reviews</small>
+          </div>
+          <button class="card card--drilldown dashboard-quick-drill" type="button" data-analysis-target="behavior">
+            Open behavior drill-down
+          </button>
+        </article>
+      </section>
+
+      <section class="dashboard-section" aria-label="Drill-down cards">
+        <h3>Drill-down cards</h3>
+        <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
+          ${defaultMetricCards}
+          <button
+            class="card card--summary dashboard-metric-expand-toggle"
+            type="button"
+            data-dashboard-metrics-toggle
+            aria-expanded="${isExpandedMetrics}"
+            aria-controls="dashboard-extended-metrics"
+          >
+            <strong>${isExpandedMetrics ? "Fewer cards" : "More cards"}</strong>
+            <div class="metric">${metricCardGroups.extended.length}</div>
+            <div class="muted">${isExpandedMetrics ? "Show only essentials" : "Show full analytics set"}</div>
+          </button>
+        </div>
+        <div id="dashboard-extended-metrics" class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}" ${isExpandedMetrics ? "" : "hidden"} aria-label="Extended metrics">${extendedMetricCards}</div>
+      </section>
 
       <details class="dashboard-details" open>
-        <summary>Recent logs summary</summary>
-        <div class="dashboard-recent-summary" role="status" aria-live="polite">
-          <span><strong>Latest date:</strong> ${latestEntry?.date ?? "—"}</span>
-          <span><strong>Completion:</strong> ${latestEntryCompletionLabel}</span>
-          <span><strong>Window:</strong> ${loggedDaysInWindow}/7 days logged</span>
-          <span><strong>Notable change:</strong> ${notableChange}</span>
+        <summary>Progress systems</summary>
+        <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+          <div class="card card--summary"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div><div class="muted">Total logged days: ${entries.length}</div></div>
+          <div class="card card--summary"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+          <div class="card card--summary"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Baseline: ${tdeeSummary.baselineTdee ?? "—"} kcal/day</div></div>
+        </div>
+        <div class="dashboard-subgrid">
+          <details class="dashboard-details">
+            <summary>Skills</summary>
+            <ul>${skillLines}</ul>
+          </details>
+          <details class="dashboard-details">
+            <summary>Attributes</summary>
+            <div class="cards ${state.settings.compactCards ? "compact" : ""}">${attributeCards}</div>
+          </details>
+          <details class="dashboard-details">
+            <summary>Quest highlights</summary>
+            <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>
+          </details>
         </div>
       </details>
     </section>
