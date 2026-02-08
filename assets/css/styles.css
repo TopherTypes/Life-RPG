@@ -104,6 +104,13 @@ input, select, textarea, button {
 
 textarea { min-height: 110px; resize: vertical; }
 
+/* Checkbox controls should size to intrinsic dimensions instead of full-row inputs. */
+input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.4rem;
+}
+
+
 
 /*
  * Field-level validation treatment for daily entry inputs.
@@ -330,4 +337,13 @@ th, td {
   .app { padding: 0.6rem; }
   .hero-panel { flex-direction: column; align-items: flex-start; }
   .hero-action { max-width: 100%; }
+}
+
+
+.onboarding-card {
+  width: min(640px, 100%);
+}
+
+.onboarding-step h4 {
+  margin-bottom: 0.6rem;
 }

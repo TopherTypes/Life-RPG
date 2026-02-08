@@ -101,3 +101,23 @@ export const CALORIE_STATIC_OUTLIER = {
   min: 800,
   max: 8000,
 };
+
+/**
+ * Friendly labels for daily metrics used in onboarding and settings summaries.
+ */
+export const DAILY_FIELD_LABELS = {
+  calories: "Calories In",
+  sleepHours: "Sleep Hours",
+  mood: "Mood",
+  steps: "Steps",
+  exerciseMinutes: "Exercise Minutes",
+  exerciseEffort: "Exercise Effort",
+};
+
+/**
+ * Supported profile unit preferences per account.
+ */
+export const UNIT_OPTIONS = {
+  height: ["cm", "ft_in"],
+  weight: ["kg", "lb", "st_lb"],
+};

@@ -1,5 +1,5 @@
 import { loadState, persistState, getDefaultState } from "./storage.js";
-import { QUESTS } from "./constants.js";
+import { QUESTS, DAILY_FIELDS, DAILY_FIELD_LABELS } from "./constants.js";
 import {
   ANALYTICS_EVENTS,
   clearTrackedEvents,
@@ -7,7 +7,7 @@ import {
   registerAnalyticsDebugApi,
   track,
 } from "./analytics.js";
-import { todayISO } from "./utils.js";
+import { todayISO, convertHeightToCm, convertWeightToKg } from "./utils.js";
 import { isEditable, validateEntry } from "./validation.js";
 import { computeTdee } from "./profile-metrics.js";
 import {
@@ -50,7 +50,9 @@ function init() {
   initializeFormDefaults();
   bindEvents();
   hydrateSettings(state);
-  hydrateProfile(state);
+  hydrateProfile(state, state.settings.units);
+  applyProfileUnitLabels();
+  if (!state.onboardingComplete) openOnboardingModal();
   registerAnalyticsDebugApi();
   refreshAnalyticsDiagnostics();
   refreshAllViews();
@@ -101,10 +103,18 @@ function bindEvents() {
   document.getElementById("setting-animations").addEventListener("change", onSettingsChange);
   document.getElementById("setting-showtips").addEventListener("change", onSettingsChange);
   document.getElementById("reset-account").addEventListener("click", resetAccount);
+  document.getElementById("setting-height-unit").addEventListener("change", onUnitsChange);
+  document.getElementById("setting-weight-unit").addEventListener("change", onUnitsChange);
+
+  document.getElementById("onboarding-next").addEventListener("click", advanceOnboardingStep);
+  document.getElementById("onboarding-height-unit").addEventListener("change", updateOnboardingUnitFieldLabels);
+  document.getElementById("onboarding-weight-unit").addEventListener("change", updateOnboardingUnitFieldLabels);
+  document.getElementById("onboarding-prev").addEventListener("click", retreatOnboardingStep);
+  document.getElementById("onboarding-complete").addEventListener("click", completeOnboarding);
 
   // Profile listeners persist personalization inputs used for calorie guidance and TDEE estimation.
   document.getElementById("save-profile").addEventListener("click", saveProfile);
-  ["profile-age", "profile-gender", "profile-height", "profile-weight", "profile-activity"].forEach((fieldId) => {
+  ["profile-age", "profile-gender", "profile-height", "profile-height-secondary", "profile-weight", "profile-weight-secondary", "profile-activity"].forEach((fieldId) => {
     const input = document.getElementById(fieldId);
     input.addEventListener("change", saveProfile);
     input.addEventListener("input", () => {
@@ -387,7 +397,7 @@ function deleteReview(type, period) {
  * messaging can compare intake trends against an individualized energy baseline.
  */
 function saveProfile() {
-  const profile = readProfileFromForm();
+  const profile = readProfileFromForm(state.settings.units);
   const fieldErrors = {};
 
   const allowedGenders = new Set(["male", "female", "nonbinary", "prefer_not_to_say"]);
@@ -437,6 +447,7 @@ function saveProfile() {
 
   document.getElementById("profile-tdee").value = tdee ?? "";
   persistState(state);
+  hydrateProfile(state, state.settings.units);
   refreshAllViews();
 
   const incompleteMessage = hasBaseFields && !hasTdeeInputs
@@ -474,6 +485,8 @@ function resetAccount() {
   state.reviews = fresh.reviews;
   state.acceptedQuests = fresh.acceptedQuests;
   state.settings = fresh.settings;
+  state.goals = fresh.goals;
+  state.onboardingComplete = false;
   // Keep reset behavior aligned with schema evolution by resetting profile too.
   state.profile = fresh.profile;
   persistState(state);
@@ -494,7 +507,9 @@ function resetAccount() {
   });
   initializeFormDefaults();
   hydrateSettings(state);
-  hydrateProfile(state);
+  hydrateProfile(state, state.settings.units);
+  applyProfileUnitLabels();
+  if (!state.onboardingComplete) openOnboardingModal();
   registerAnalyticsDebugApi();
   refreshAnalyticsDiagnostics();
   refreshAllViews();
@@ -502,6 +517,202 @@ function resetAccount() {
 }
 
 
+
+
+/**
+ * Synchronizes profile unit selectors and visible field labels in Settings.
+ */
+function applyProfileUnitLabels() {
+  const { height, weight } = state.settings.units;
+  const heightLabel = document.getElementById("profile-height-label");
+  const heightSecondaryLabel = document.getElementById("profile-height-secondary-label");
+  const heightSecondaryInput = document.getElementById("profile-height-secondary");
+  const weightLabel = document.getElementById("profile-weight-label");
+  const weightSecondaryLabel = document.getElementById("profile-weight-secondary-label");
+  const weightSecondaryInput = document.getElementById("profile-weight-secondary");
+
+  document.getElementById("setting-height-unit").value = height;
+  document.getElementById("setting-weight-unit").value = weight;
+
+  heightLabel.textContent = height === "ft_in" ? "Height (ft)" : "Height (cm)";
+  const showHeightSecondary = height === "ft_in";
+  heightSecondaryLabel.classList.toggle("hidden", !showHeightSecondary);
+  heightSecondaryInput.classList.toggle("hidden", !showHeightSecondary);
+  heightSecondaryLabel.textContent = "Height (in)";
+
+  if (weight === "kg") weightLabel.textContent = "Weight (kg)";
+  if (weight === "lb") weightLabel.textContent = "Weight (lb)";
+  if (weight === "st_lb") weightLabel.textContent = "Weight (st)";
+  const showWeightSecondary = weight === "st_lb";
+  weightSecondaryLabel.classList.toggle("hidden", !showWeightSecondary);
+  weightSecondaryInput.classList.toggle("hidden", !showWeightSecondary);
+  weightSecondaryLabel.textContent = "Weight (lb)";
+}
+
+/**
+ * Persists profile unit preference changes and rehydrates displayed profile values.
+ */
+function onUnitsChange() {
+  state.settings.units.height = document.getElementById("setting-height-unit").value;
+  state.settings.units.weight = document.getElementById("setting-weight-unit").value;
+  persistState(state);
+  applyProfileUnitLabels();
+  hydrateProfile(state, state.settings.units);
+  showMessages("settings-message", ["Profile units updated."], "good");
+}
+
+const onboardingState = {
+  step: 0,
+};
+
+/**
+ * Opens onboarding wizard and pre-fills controls from persisted account data.
+ */
+function openOnboardingModal() {
+  onboardingState.step = 0;
+  document.getElementById("onboarding-modal").classList.remove("hidden");
+  document.getElementById("onboarding-modal").setAttribute("aria-hidden", "false");
+  document.getElementById("onboarding-message").innerHTML = "";
+  document.getElementById("onboarding-height-unit").value = state.settings.units.height;
+  document.getElementById("onboarding-weight-unit").value = state.settings.units.weight;
+  document.getElementById("onboarding-age").value = state.profile.age ?? "";
+  document.getElementById("onboarding-gender").value = state.profile.gender ?? "";
+  document.getElementById("onboarding-activity").value = state.profile.activityLevel ?? "";
+
+  const existingHeightCm = state.profile.heightCm;
+  const existingWeightKg = state.profile.weightKg;
+  document.getElementById("onboarding-height-primary").value = Number.isFinite(existingHeightCm) ? existingHeightCm : "";
+  document.getElementById("onboarding-height-secondary").value = "";
+  document.getElementById("onboarding-weight-primary").value = Number.isFinite(existingWeightKg) ? existingWeightKg : "";
+  document.getElementById("onboarding-weight-secondary").value = "";
+
+  DAILY_FIELDS.forEach((field) => {
+    const checkbox = document.getElementById(`onboarding-goal-${field}`);
+    const label = document.querySelector(`[data-goal-label="${field}"]`);
+    checkbox.checked = state.goals.trackedMetrics.includes(field);
+    if (label) label.textContent = DAILY_FIELD_LABELS[field];
+  });
+
+  document.getElementById("onboarding-setting-compact").checked = state.settings.compactCards;
+  document.getElementById("onboarding-setting-animations").checked = state.settings.enableAnimations;
+  document.getElementById("onboarding-setting-showtips").checked = state.settings.showTips;
+  updateOnboardingUnitFieldLabels();
+
+  renderOnboardingStep();
+}
+
+
+/**
+ * Updates onboarding field labels and visibility for unit-specific secondary inputs.
+ */
+function updateOnboardingUnitFieldLabels() {
+  const heightUnit = document.getElementById("onboarding-height-unit").value;
+  const weightUnit = document.getElementById("onboarding-weight-unit").value;
+
+  const heightPrimaryLabel = document.querySelector('label[for="onboarding-height-primary"]');
+  const heightSecondaryLabel = document.querySelector('label[for="onboarding-height-secondary"]');
+  const heightSecondaryInput = document.getElementById("onboarding-height-secondary");
+  heightPrimaryLabel.textContent = heightUnit === "ft_in" ? "Height (ft)" : "Height (cm)";
+  const showHeightSecondary = heightUnit === "ft_in";
+  heightSecondaryLabel.classList.toggle("hidden", !showHeightSecondary);
+  heightSecondaryInput.classList.toggle("hidden", !showHeightSecondary);
+
+  const weightPrimaryLabel = document.querySelector('label[for="onboarding-weight-primary"]');
+  const weightSecondaryLabel = document.querySelector('label[for="onboarding-weight-secondary"]');
+  const weightSecondaryInput = document.getElementById("onboarding-weight-secondary");
+  weightPrimaryLabel.textContent = weightUnit === "st_lb" ? "Weight (st)" : weightUnit === "lb" ? "Weight (lb)" : "Weight (kg)";
+  const showWeightSecondary = weightUnit === "st_lb";
+  weightSecondaryLabel.classList.toggle("hidden", !showWeightSecondary);
+  weightSecondaryInput.classList.toggle("hidden", !showWeightSecondary);
+}
+
+/**
+ * Handles onboarding step-by-step navigation state and button visibility.
+ */
+function renderOnboardingStep() {
+  document.querySelectorAll(".onboarding-step").forEach((step, index) => {
+    step.classList.toggle("hidden", index !== onboardingState.step);
+  });
+
+  document.getElementById("onboarding-prev").classList.toggle("hidden", onboardingState.step === 0);
+  document.getElementById("onboarding-next").classList.toggle("hidden", onboardingState.step >= 2);
+  document.getElementById("onboarding-complete").classList.toggle("hidden", onboardingState.step !== 2);
+}
+
+function advanceOnboardingStep() {
+  onboardingState.step = Math.min(2, onboardingState.step + 1);
+  renderOnboardingStep();
+}
+
+function retreatOnboardingStep() {
+  onboardingState.step = Math.max(0, onboardingState.step - 1);
+  renderOnboardingStep();
+}
+
+/**
+ * Commits onboarding data to account profile/settings in one deterministic transaction.
+ */
+function completeOnboarding() {
+  const trackedMetrics = DAILY_FIELDS.filter((field) => document.getElementById(`onboarding-goal-${field}`).checked);
+  if (!trackedMetrics.length) {
+    showMessages("onboarding-message", ["Select at least one goal metric to track."], "bad");
+    return;
+  }
+
+  state.settings.units.height = document.getElementById("onboarding-height-unit").value;
+  state.settings.units.weight = document.getElementById("onboarding-weight-unit").value;
+  state.settings.compactCards = document.getElementById("onboarding-setting-compact").checked;
+  state.settings.enableAnimations = document.getElementById("onboarding-setting-animations").checked;
+  state.settings.showTips = document.getElementById("onboarding-setting-showtips").checked;
+  state.goals.trackedMetrics = trackedMetrics;
+
+  const onboardingProfile = {
+    age: Number.parseInt(document.getElementById("onboarding-age").value, 10),
+    gender: document.getElementById("onboarding-gender").value || null,
+    activityLevel: document.getElementById("onboarding-activity").value || null,
+    heightCm: convertHeightToCm(
+      document.getElementById("onboarding-height-primary").value,
+      document.getElementById("onboarding-height-secondary").value || "0",
+      state.settings.units.height,
+    ),
+    weightKg: convertWeightToKg(
+      document.getElementById("onboarding-weight-primary").value,
+      document.getElementById("onboarding-weight-secondary").value || "0",
+      state.settings.units.weight,
+    ),
+  };
+
+  const hasProfileCore = Number.isFinite(onboardingProfile.age)
+    && Number.isFinite(onboardingProfile.heightCm)
+    && Number.isFinite(onboardingProfile.weightKg)
+    && onboardingProfile.gender
+    && onboardingProfile.activityLevel;
+
+  if (!hasProfileCore) {
+    showMessages("onboarding-message", ["Complete profile fields (age, gender, activity, height, weight) before finishing setup."], "bad");
+    return;
+  }
+
+  const tdee = computeTdee(onboardingProfile);
+  state.profile = {
+    ...state.profile,
+    ...onboardingProfile,
+    tdee,
+    updatedAt: new Date().toISOString(),
+  };
+
+  state.onboardingComplete = true;
+
+  persistState(state);
+  hydrateSettings(state);
+  hydrateProfile(state, state.settings.units);
+  applyProfileUnitLabels();
+  refreshAllViews();
+
+  document.getElementById("onboarding-modal").classList.add("hidden");
+  document.getElementById("onboarding-modal").setAttribute("aria-hidden", "true");
+  showMessages("settings-message", ["Onboarding complete. You can update this information anytime in Settings."], "good");
+}
 
 /**
  * Refreshes diagnostics textarea with current analytics JSON snapshot.
