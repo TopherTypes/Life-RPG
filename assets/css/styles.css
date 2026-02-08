@@ -365,3 +365,39 @@ button.card.dashboard-metric-trigger:focus-visible {
 .dashboard-detail-head {
   margin-bottom: 0.5rem;
 }
+
+/* Dashboard sections provide clear visual grouping for status -> trends -> actions -> diagnostics flow. */
+.dashboard-section {
+  margin-top: 1.1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid #223047;
+}
+
+.dashboard-section:first-of-type {
+  margin-top: 0.6rem;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.dashboard-section > h3 {
+  margin: 0 0 0.6rem;
+}
+
+/* Native details/summary keeps disclosure lightweight while preserving keyboard accessibility. */
+.dashboard-details {
+  margin-top: 0.75rem;
+  border: 1px solid #2a3f59;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  background: #0d1522;
+}
+
+.dashboard-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #c9d5e3;
+}
+
+.dashboard-details[open] summary {
+  margin-bottom: 0.55rem;
+}
