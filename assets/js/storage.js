@@ -1,4 +1,4 @@
-import { STORAGE_KEY, QUESTS, DAILY_FIELDS, UNIT_OPTIONS } from "./constants.js";
+import { STORAGE_KEY, QUESTS, DAILY_FIELDS, UNIT_OPTIONS, BEHAVIOR_CONFIG } from "./constants.js";
 
 const ALLOWED_GENDERS = new Set(["male", "female", "nonbinary", "prefer_not_to_say"]);
 const ALLOWED_ACTIVITY_LEVELS = new Set(["sedentary", "light", "moderate", "active", "very_active"]);
@@ -59,13 +59,23 @@ function toAllowedString(value, allowed) {
  * - Invalid legacy values are coerced to null instead of throwing.
  */
 function normalizeProfile(rawProfile = {}) {
+  const baselineTdee = toNullableNumber(rawProfile.baselineTdee ?? rawProfile.tdee);
+  const dynamicTdee = toNullableNumber(rawProfile.dynamicTdee);
+
   return {
     heightCm: toNullableNumber(rawProfile.heightCm),
     weightKg: toNullableNumber(rawProfile.weightKg),
     age: toNullableInteger(rawProfile.age),
     gender: toAllowedString(rawProfile.gender, ALLOWED_GENDERS),
     activityLevel: toAllowedString(rawProfile.activityLevel, ALLOWED_ACTIVITY_LEVELS),
-    tdee: toNullableNumber(rawProfile.tdee),
+    // `tdee` is retained as a compatibility alias so older consumers still read baseline values.
+    tdee: baselineTdee,
+    baselineTdee,
+    dynamicTdee,
+    dynamicTdeeEnabled: rawProfile.dynamicTdeeEnabled === true,
+    dynamicTdeeWindowDays: Number.isInteger(rawProfile.dynamicTdeeWindowDays)
+      ? rawProfile.dynamicTdeeWindowDays
+      : BEHAVIOR_CONFIG.CALORIE_LOOKBACK_DAYS,
     updatedAt: typeof rawProfile.updatedAt === "string" ? rawProfile.updatedAt : null,
   };
 }
@@ -150,6 +160,10 @@ export function getDefaultState() {
       gender: null,
       activityLevel: null,
       tdee: null,
+      baselineTdee: null,
+      dynamicTdee: null,
+      dynamicTdeeEnabled: false,
+      dynamicTdeeWindowDays: BEHAVIOR_CONFIG.CALORIE_LOOKBACK_DAYS,
       updatedAt: null,
     },
   };

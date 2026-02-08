@@ -9,7 +9,7 @@ import {
 } from "./analytics.js";
 import { todayISO, convertHeightToCm, convertWeightToKg } from "./utils.js";
 import { isEditable, validateEntry } from "./validation.js";
-import { computeTdee } from "./profile-metrics.js";
+import { computeDynamicTdee, computeTdee } from "./profile-metrics.js";
 import {
   setupTabs,
   hydrateFormForDate,
@@ -43,6 +43,23 @@ function formatLocalDateISO(date) {
 }
 
 /**
+ * Recomputes baseline + adaptive TDEE from latest profile and entry history.
+ *
+ * Guardrail: this helper only writes energy estimates when profile inputs are complete,
+ * and never mutates raw input fields (age, height, weight, etc.).
+ */
+function refreshProfileEnergyEstimates() {
+  const orderedEntries = Object.values(state.entries).sort((a, b) => a.date.localeCompare(b.date));
+  const dynamicSummary = computeDynamicTdee(state.profile, orderedEntries);
+
+  state.profile.tdee = dynamicSummary.baselineTdee;
+  state.profile.baselineTdee = dynamicSummary.baselineTdee;
+  state.profile.dynamicTdee = dynamicSummary.dynamicTdee;
+
+  return dynamicSummary;
+}
+
+/**
  * Initializes app startup defaults and wires all UI handlers.
  */
 function init() {
@@ -50,6 +67,7 @@ function init() {
   setupRecapModalControls();
   initializeFormDefaults();
   bindEvents();
+  refreshProfileEnergyEstimates();
   hydrateSettings(state);
   hydrateProfile(state, state.settings.units);
   applyProfileUnitLabels();
@@ -105,6 +123,7 @@ function bindEvents() {
   document.getElementById("setting-compact").addEventListener("change", onSettingsChange);
   document.getElementById("setting-animations").addEventListener("change", onSettingsChange);
   document.getElementById("setting-showtips").addEventListener("change", onSettingsChange);
+  document.getElementById("setting-dynamic-calorie-range").addEventListener("change", onSettingsChange);
   document.getElementById("reset-account").addEventListener("click", resetAccount);
   document.getElementById("setting-height-unit").addEventListener("change", onUnitsChange);
   document.getElementById("setting-weight-unit").addEventListener("change", onUnitsChange);
@@ -208,6 +227,7 @@ function onEntrySubmit(event) {
     anomalyNotes: validation.anomalies,
   };
 
+  refreshProfileEnergyEstimates();
   persistState(state);
 
   // Event intent: successful daily completion funnel checkpoint.
@@ -439,16 +459,20 @@ function saveProfile() {
   clearProfileFieldErrors();
 
   // Centralized metric utility keeps TDEE calculations deterministic across modules.
-  const tdee = hasTdeeInputs ? computeTdee(profile) : null;
+  const baselineTdee = hasTdeeInputs ? computeTdee(profile) : null;
 
   state.profile = {
     ...state.profile,
     ...profile,
-    tdee,
+    // Keep legacy alias for compatibility while explicitly storing baseline + dynamic values.
+    tdee: baselineTdee,
+    baselineTdee,
+    dynamicTdee: null,
     updatedAt: new Date().toISOString(),
   };
 
-  document.getElementById("profile-tdee").value = tdee ?? "";
+  const dynamicSummary = refreshProfileEnergyEstimates();
+  document.getElementById("profile-tdee").value = baselineTdee ?? "";
   persistState(state);
   hydrateProfile(state, state.settings.units);
   refreshAllViews();
@@ -459,8 +483,8 @@ function saveProfile() {
   showMessages(
     "settings-message",
     [
-      tdee !== null
-        ? `Profile saved. Estimated TDEE: ${tdee} kcal/day.`
+      baselineTdee !== null
+        ? `Profile saved. Baseline TDEE: ${baselineTdee} kcal/day. Adaptive estimate: ${dynamicSummary.dynamicTdee ?? "—"} kcal/day.`
         : `Profile saved.${incompleteMessage}`,
     ],
     "good"
@@ -474,6 +498,7 @@ function onSettingsChange() {
   state.settings.compactCards = document.getElementById("setting-compact").checked;
   state.settings.enableAnimations = document.getElementById("setting-animations").checked;
   state.settings.showTips = document.getElementById("setting-showtips").checked;
+  state.profile.dynamicTdeeEnabled = document.getElementById("setting-dynamic-calorie-range").checked;
   persistState(state);
   refreshAllViews();
   showMessages("settings-message", ["Settings updated."], "good");
@@ -509,6 +534,7 @@ function resetAccount() {
     document.getElementById(id).value = "";
   });
   initializeFormDefaults();
+  refreshProfileEnergyEstimates();
   hydrateSettings(state);
   hydrateProfile(state, state.settings.units);
   applyProfileUnitLabels();
@@ -696,13 +722,16 @@ function completeOnboarding() {
     return;
   }
 
-  const tdee = computeTdee(onboardingProfile);
+  const baselineTdee = computeTdee(onboardingProfile);
   state.profile = {
     ...state.profile,
     ...onboardingProfile,
-    tdee,
+    tdee: baselineTdee,
+    baselineTdee,
+    dynamicTdee: null,
     updatedAt: new Date().toISOString(),
   };
+  refreshProfileEnergyEstimates();
 
   state.onboardingComplete = true;
 
