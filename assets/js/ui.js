@@ -1,14 +1,9 @@
-import { QUESTS, DAILY_FIELDS, DAILY_FIELD_LABELS } from "./constants.js";
+import { QUESTS, DAILY_FIELDS, DAILY_ANALYTICS_META } from "./constants.js";
 import { computeDynamicTdee } from "./profile-metrics.js";
-import { avg, escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
+import { escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
 import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
-import {
-  WEEKDAY_ORDER,
-  computeMetricAverage,
-  computeWeekdayAverages,
-  findHighestLowestWeekday,
-  getMetricWindow,
-} from "./metric-analytics.js";
+import { WEEKDAY_ORDER } from "./metric-analytics.js";
+import { analyzeDailyMetric, analyzeBehavior, analyzeQuests, analyzeReviews } from "./domain-analytics.js";
 
 const recapState = {
   pages: [],
@@ -26,33 +21,6 @@ const reviewsUiState = {
   weeklyLimit: 5,
   monthlyLimit: 5,
 };
-
-/**
- * Shared metric metadata used by both dashboard overview cards and drill-down details.
- *
- * Keeping this metadata centralized guarantees labels, units, and formatting rules
- * stay consistent without introducing per-metric hardcoded markup in renderers.
- */
-const METRIC_DETAIL_META = {
-  calories: { label: DAILY_FIELD_LABELS.calories, unitLabel: "kcal", averageDecimals: 0, valueDecimals: 0 },
-  sleepHours: { label: DAILY_FIELD_LABELS.sleepHours, unitLabel: "hours", averageDecimals: 1, valueDecimals: 1 },
-  mood: { label: DAILY_FIELD_LABELS.mood, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
-  steps: { label: DAILY_FIELD_LABELS.steps, unitLabel: "steps", averageDecimals: 0, valueDecimals: 0 },
-  exerciseMinutes: { label: DAILY_FIELD_LABELS.exerciseMinutes, unitLabel: "minutes", averageDecimals: 0, valueDecimals: 0 },
-  exerciseEffort: { label: DAILY_FIELD_LABELS.exerciseEffort, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
-};
-
-/**
- * Returns metadata for a metric key while preserving key names as fallback labels.
- */
-function getMetricMeta(metricKey) {
-  return METRIC_DETAIL_META[metricKey] || {
-    label: DAILY_FIELD_LABELS[metricKey] || metricKey,
-    unitLabel: "",
-    averageDecimals: 1,
-    valueDecimals: 1,
-  };
-}
 
 /**
  * Renders contextual status messages into the target container.
@@ -499,31 +467,20 @@ export function renderDashboard(state) {
   const latest7 = entries.slice(-7);
   const tdeeSummary = buildDynamicTdeeSummary(state);
 
-  const averages = {
-    calories: avg(latest7.map((e) => e.calories).filter((v) => v !== null)),
-    sleepHours: avg(latest7.map((e) => e.sleepHours).filter((v) => v !== null)),
-    mood: avg(latest7.map((e) => e.mood).filter((v) => v !== null)),
-    steps: avg(latest7.map((e) => e.steps).filter((v) => v !== null)),
-    exerciseMinutes: avg(latest7.map((e) => e.exerciseMinutes).filter((v) => v !== null)),
-    exerciseEffort: avg(latest7.map((e) => e.exerciseEffort).filter((v) => v !== null)),
-  };
+  const metricAnalyses = DAILY_FIELDS.reduce((acc, metricKey) => {
+    acc[metricKey] = analyzeDailyMetric(state, metricKey, 7);
+    return acc;
+  }, {});
 
-  // Track per-metric sample sizes so sparse datasets render with explicit placeholders, not misleading zeros.
-  const averageSampleSizes = {
-    calories: latest7.filter((entry) => entry.calories !== null).length,
-    sleepHours: latest7.filter((entry) => entry.sleepHours !== null).length,
-    mood: latest7.filter((entry) => entry.mood !== null).length,
-    steps: latest7.filter((entry) => entry.steps !== null).length,
-    exerciseMinutes: latest7.filter((entry) => entry.exerciseMinutes !== null).length,
-    exerciseEffort: latest7.filter((entry) => entry.exerciseEffort !== null).length,
-  };
+  const behaviorAnalysis = analyzeBehavior(state, 30);
+  const questsAnalysis = analyzeQuests(state, 30);
+  const reviewsAnalysis = analyzeReviews(state, 30);
 
-  /**
-   * Formats a 7-day average with an em dash fallback when not enough datapoints exist.
-   */
-  const formatAverage = (metricKey, decimals = 1) => {
-    if (!averageSampleSizes[metricKey]) return formatValue(null);
-    return averages[metricKey].toFixed(decimals);
+  const formatMetricAverage = (metricKey) => {
+    const analysis = metricAnalyses[metricKey];
+    const meta = analysis.metadata || DAILY_ANALYTICS_META[metricKey] || {};
+    if (analysis.emptyState?.isEmpty) return formatValue(null);
+    return Number(analysis.aggregates.average).toFixed(meta.averageDecimals ?? 1);
   };
 
   const skillLines = Object.entries(progression.skillXp)
@@ -547,15 +504,14 @@ export function renderDashboard(state) {
     })
     .join("");
 
-  const moodBars = latest7
-    .map((entry) => {
-      // Distinguish explicit low mood values from missing mood logs to prevent misleading zero-height bars.
-      const isMissingMood = entry.mood === null;
-      const safeMood = isMissingMood ? 0 : entry.mood;
+  const moodBars = (metricAnalyses.mood?.series || [])
+    .map((point) => {
+      const isMissingMood = point.value === null;
+      const safeMood = isMissingMood ? 0 : point.value;
       const height = Math.round((safeMood / 10) * 100);
       const barClass = isMissingMood ? "bar bar-missing" : "bar";
-      const barTitle = isMissingMood ? "No mood data logged" : `Mood: ${entry.mood}/10`;
-      return `<div class="bar-col"><div class="${barClass}" style="height:${height}%" title="${barTitle}"></div><span>${entry.date.slice(5)}</span></div>`;
+      const barTitle = isMissingMood ? "No mood data logged" : `Mood: ${point.value}/10`;
+      return `<div class="bar-col"><div class="${barClass}" style="height:${height}%" title="${barTitle}"></div><span>${point.date.slice(5)}</span></div>`;
     })
     .join("");
 
@@ -570,19 +526,20 @@ export function renderDashboard(state) {
     ? '<div class="msg good">Tip: Use the “Log Daily Record” button at the top to keep your streak and maximize bonus XP opportunities.</div>'
     : "";
 
-  // The specific metrics requested for drill-down are surfaced as interactive summary cards.
-  const detailMetricCards = [
-    { key: "mood", title: "7-Day Avg Mood" },
-    { key: "sleepHours", title: "7-Day Avg Sleep (hrs)" },
-    { key: "steps", title: "7-Day Avg Steps" },
-    { key: "exerciseMinutes", title: "7-Day Avg Exercise Min" },
-    { key: "exerciseEffort", title: "7-Day Avg Exercise Effort" },
-    { key: "calories", title: "7-Day Avg Calories" },
+  const detailCards = [
+    { target: "daily:mood", title: "7-Day Avg Mood", metric: "mood" },
+    { target: "daily:sleepHours", title: "7-Day Avg Sleep (hrs)", metric: "sleepHours" },
+    { target: "daily:steps", title: "7-Day Avg Steps", metric: "steps" },
+    { target: "daily:exerciseMinutes", title: "7-Day Avg Exercise Min", metric: "exerciseMinutes" },
+    { target: "daily:exerciseEffort", title: "7-Day Avg Exercise Effort", metric: "exerciseEffort" },
+    { target: "daily:calories", title: "7-Day Avg Calories", metric: "calories" },
+    { target: "behavior", title: "Behavior Health", value: `${Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100)}%` },
+    { target: "quests", title: "Quest Acceptance", value: `${Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)}%` },
+    { target: "reviews", title: "Saved Reviews", value: String(reviewsAnalysis.aggregates.totalCount || 0) },
   ]
-    .map(({ key, title }) => {
-      const meta = getMetricMeta(key);
-      const value = formatAverage(key, meta.averageDecimals);
-      return `<button class="card dashboard-metric-trigger" type="button" data-metric-key="${key}" aria-label="Open ${meta.label} details"><strong>${title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div></button>`;
+    .map((card) => {
+      const value = card.metric ? formatMetricAverage(card.metric) : card.value;
+      return `<button class="card dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="Open ${card.title} details"><strong>${card.title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div></button>`;
     })
     .join("");
 
@@ -591,11 +548,12 @@ export function renderDashboard(state) {
     <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
+      <div class="card"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
       <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)} • Calorie penalty ${formatPercent(progression.behavior.caloriePenaltyRate)}</div></div>
-      ${detailMetricCards}
+      ${detailCards}
       <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary.baselineTdee ?? "—"}</div><div class="muted">Profile-derived estimate.</div></div>
-      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive calorie range in Settings to use this estimate."}</div></div>
-      <div class="card"><strong>Adaptive Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Bounded and smoothed to reduce noise.</div></div>
+      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+      <div class="card"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Bounded and smoothed to reduce noise.</div></div>
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
@@ -628,110 +586,152 @@ export function renderDashboard(state) {
 }
 
 /**
- * Renders a metric-specific detail panel from shared metadata and recent entries.
+ * Renders a standardized analytics detail panel.
  */
-export function renderMetricDetail(state, metricKey) {
-  const MIN_POINTS_FOR_INSIGHTS = 5;
+export function renderDashboardDetail(state, targetKey) {
   const WINDOW_DAYS = 30;
   const detailContent = document.getElementById("dashboard-detail-content");
   if (!detailContent) return;
 
-  if (!DAILY_FIELDS.includes(metricKey)) {
-    detailContent.innerHTML = '<div class="msg warn">Unsupported metric detail requested.</div>';
-    return;
-  }
-
-  const meta = getMetricMeta(metricKey);
-  const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
-  const orderedEntries = progression.orderedEntries;
-  const entriesWithMetric = orderedEntries.filter((entry) => entry[metricKey] !== null);
-  const metricWindow = getMetricWindow(orderedEntries, metricKey, WINDOW_DAYS);
-  const windowValues = metricWindow.map((point) => point.value).filter((value) => Number.isFinite(value));
-  const weekdayAverages = computeWeekdayAverages(metricWindow);
-  const weekdayExtremes = findHighestLowestWeekday(weekdayAverages);
-
-  const formatMetricValue = (value, decimals = meta.valueDecimals) => {
-    if (value === null || value === undefined) return formatValue(null);
+  const formatMetricValue = (value, decimals = 1) => {
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) return formatValue(null);
     return Number(value).toFixed(decimals);
   };
 
-  const latestValue = entriesWithMetric.length ? entriesWithMetric[entriesWithMetric.length - 1][metricKey] : null;
-  const minValue = entriesWithMetric.length ? Math.min(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
-  const maxValue = entriesWithMetric.length ? Math.max(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
-  const last30Average = computeMetricAverage(metricWindow);
+  if (targetKey && targetKey.startsWith("daily:")) {
+    const metricKey = targetKey.split(":")[1];
+    const analysis = analyzeDailyMetric(state, metricKey, WINDOW_DAYS);
+    const meta = analysis.metadata || DAILY_ANALYTICS_META[metricKey] || {};
+    const windowValues = analysis.series.map((point) => point.value).filter((value) => Number.isFinite(value));
+    const weekdayAverages = analysis.distributions.weekdayAverages || {};
+    const weekdayExtremes = analysis.distributions.weekdayExtremes || {};
+    const maxWindowValue = windowValues.length ? Math.max(...windowValues) : 0;
 
-  const maxWindowValue = windowValues.length ? Math.max(...windowValues) : 0;
-  const metricBars = metricWindow
-    .map((point) => {
-      const hasValue = Number.isFinite(point.value);
-      const barHeight = hasValue && maxWindowValue > 0 ? Math.max(6, (point.value / maxWindowValue) * 100) : 14;
-      const shortDate = point.date.slice(5);
-      return `
-        <div class="bar-col" title="${point.date}: ${formatMetricValue(point.value)}">
-          <div class="bar ${hasValue ? "" : "bar-missing"}" style="height:${barHeight}%"></div>
-          <div>${shortDate}</div>
-        </div>`;
-    })
-    .join("");
+    const metricBars = analysis.series
+      .map((point) => {
+        const hasValue = Number.isFinite(point.value);
+        const barHeight = hasValue && maxWindowValue > 0 ? Math.max(6, (point.value / maxWindowValue) * 100) : 14;
+        const shortDate = point.date.slice(5);
+        return `
+          <div class="bar-col" title="${point.date}: ${formatMetricValue(point.value, meta.valueDecimals ?? 1)}">
+            <div class="bar ${hasValue ? "" : "bar-missing"}" style="height:${barHeight}%"></div>
+            <div>${shortDate}</div>
+          </div>`;
+      })
+      .join("");
 
-  const weekdayRows = WEEKDAY_ORDER
-    .map((day) => {
-      const value = weekdayAverages[day];
-      const isHighest = weekdayExtremes.highest?.day === day;
-      const isLowest = weekdayExtremes.lowest?.day === day;
-      const tag = isHighest ? '<span class="pill">Highest</span>' : isLowest ? '<span class="pill muted-pill">Lowest</span>' : "";
-      return `<tr><td>${day}</td><td>${formatMetricValue(value, meta.averageDecimals)}</td><td>${tag}</td></tr>`;
-    })
-    .join("");
+    const weekdayRows = WEEKDAY_ORDER
+      .map((day) => {
+        const value = weekdayAverages[day];
+        const isHighest = weekdayExtremes.highest?.day === day;
+        const isLowest = weekdayExtremes.lowest?.day === day;
+        const tag = isHighest ? '<span class="pill">Highest</span>' : isLowest ? '<span class="pill muted-pill">Lowest</span>' : "";
+        return `<tr><td>${day}</td><td>${formatMetricValue(value, meta.averageDecimals ?? 1)}</td><td>${tag}</td></tr>`;
+      })
+      .join("");
 
-  const emptyWindowMessage = `Need at least ${MIN_POINTS_FOR_INSIGHTS} logged ${meta.label.toLowerCase()} data points in the last ${WINDOW_DAYS} days to unlock this insight.`;
-  const tdeeSummary = metricKey === "calories" ? buildDynamicTdeeSummary(state) : null;
+    const recentRows = [...(analysis.series || [])]
+      .reverse()
+      .slice(0, 14)
+      .map((point) => `<tr><td>${point.date}</td><td>${formatMetricValue(point.value, meta.valueDecimals ?? 1)}</td></tr>`)
+      .join("") || `<tr><td colspan="2">No entries yet.</td></tr>`;
 
-  const recentRows = orderedEntries
-    .slice(-14)
-    .reverse()
-    .map((entry) => `<tr><td>${entry.date}</td><td>${formatMetricValue(entry[metricKey])}</td></tr>`)
-    .join("") || `<tr><td colspan="2">No entries yet.</td></tr>`;
+    const tdeeSummary = metricKey === "calories" ? buildDynamicTdeeSummary(state) : null;
 
-  detailContent.innerHTML = `
-    <div class="row dashboard-detail-head">
-      <button id="dashboard-detail-back" class="ghost" type="button" aria-label="Return to dashboard overview">← Back to overview</button>
-    </div>
-    <h3>${meta.label} Details</h3>
-    <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last ${WINDOW_DAYS} days sample size: ${windowValues.length}</p>
+    detailContent.innerHTML = `
+      <div class="row dashboard-detail-head">
+        <button id="dashboard-detail-back" class="ghost" type="button" aria-label="Return to dashboard overview">← Back to overview</button>
+      </div>
+      <h3>${meta.label || metricKey} Details</h3>
+      <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last ${WINDOW_DAYS} days sample size: ${analysis.aggregates.sampleSize || 0}</p>
 
-    <div class="cards dashboard-summary">
-      <div class="card"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(latestValue)}</div></div>
-      <div class="card"><strong>${WINDOW_DAYS}-Day Average</strong><div class="metric">${windowValues.length >= MIN_POINTS_FOR_INSIGHTS ? formatMetricValue(last30Average, meta.averageDecimals) : formatValue(null)}</div></div>
-      <div class="card"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(minValue)}</div></div>
-      <div class="card"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(maxValue)}</div></div>
-    </div>
+      <div class="cards dashboard-summary">
+        <div class="card"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.latest, meta.valueDecimals ?? 1)}</div></div>
+        <div class="card"><strong>${WINDOW_DAYS}-Day Average</strong><div class="metric">${analysis.emptyState.isEmpty ? formatValue(null) : formatMetricValue(analysis.aggregates.average, meta.averageDecimals ?? 1)}</div></div>
+        <div class="card"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.min, meta.valueDecimals ?? 1)}</div></div>
+        <div class="card"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.max, meta.valueDecimals ?? 1)}</div></div>
+      </div>
 
-    <h4 class="spacer-top">${WINDOW_DAYS}-Day ${meta.label} Trend</h4>
-    ${windowValues.length >= MIN_POINTS_FOR_INSIGHTS
-      ? `<div class="chart-wrap metric-window-chart" aria-label="${WINDOW_DAYS}-day ${meta.label} trend graph">${metricBars}</div>`
-      : `<div class="msg warn">${emptyWindowMessage}</div>`}
+      <h4 class="spacer-top">${WINDOW_DAYS}-Day ${meta.label || metricKey} Trend</h4>
+      ${analysis.emptyState.isEmpty
+        ? `<div class="msg warn">${analysis.emptyState.suggestion}</div>`
+        : `<div class="chart-wrap metric-window-chart" aria-label="${WINDOW_DAYS}-day ${meta.label || metricKey} trend graph">${metricBars}</div>`}
 
-    <h4 class="spacer-top">Weekday ${meta.label} Averages</h4>
-    ${windowValues.length >= MIN_POINTS_FOR_INSIGHTS
-      ? `<table aria-label="Weekday ${meta.label} averages"><thead><tr><th>Weekday</th><th>Average</th><th>Highlight</th></tr></thead><tbody>${weekdayRows}</tbody></table>`
-      : `<div class="msg warn">${emptyWindowMessage}</div>`}
+      <h4 class="spacer-top">Weekday ${meta.label || metricKey} Averages</h4>
+      ${analysis.emptyState.isEmpty
+        ? `<div class="msg warn">${analysis.emptyState.reason}</div>`
+        : `<table aria-label="Weekday ${meta.label || metricKey} averages"><thead><tr><th>Weekday</th><th>Average</th><th>Highlight</th></tr></thead><tbody>${weekdayRows}</tbody></table>`}
 
-    ${metricKey === "calories"
-      ? `<h4 class="spacer-top">Adaptive Calorie Targets</h4>
-    <div class="cards dashboard-summary">
-      <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary?.baselineTdee ?? "—"}</div><div class="muted">Profile equation anchor.</div></div>
-      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary?.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary?.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
-      <div class="card"><strong>Delta vs Baseline</strong><div class="metric">${tdeeSummary?.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Guardrails: ±12% cap + smoothing.</div></div>
-    </div>`
-      : ""}
+      ${metricKey === "calories"
+        ? `<h4 class="spacer-top">Adaptive Calorie Targets</h4>
+      <div class="cards dashboard-summary">
+        <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary?.baselineTdee ?? "—"}</div><div class="muted">Profile equation anchor.</div></div>
+        <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary?.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary?.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+        <div class="card"><strong>Delta vs Baseline</strong><div class="metric">${tdeeSummary?.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Guardrails: ±12% cap + smoothing.</div></div>
+      </div>`
+        : ""}
 
-    <h4 class="spacer-top">Recent ${meta.label} Records (Last 14)</h4>
-    <table aria-label="Recent ${meta.label} records">
-      <thead><tr><th>Date</th><th>${meta.label}</th></tr></thead>
-      <tbody>${recentRows}</tbody>
-    </table>
-  `;
+      <h4 class="spacer-top">Recent ${meta.label || metricKey} Records (Last 14)</h4>
+      <table aria-label="Recent ${meta.label || metricKey} records">
+        <thead><tr><th>Date</th><th>${meta.label || metricKey}</th></tr></thead>
+        <tbody>${recentRows}</tbody>
+      </table>
+    `;
+    return;
+  }
+
+  if (targetKey === "behavior") {
+    const analysis = analyzeBehavior(state, WINDOW_DAYS);
+    detailContent.innerHTML = `
+      <div class="row dashboard-detail-head"><button id="dashboard-detail-back" class="ghost" type="button">← Back to overview</button></div>
+      <h3>Behavior Mechanics Details</h3>
+      <p class="muted">${analysis.emptyState.reason}</p>
+      <div class="cards dashboard-summary">
+        <div class="card"><strong>Penalty Rate</strong><div class="metric">${formatPercent(analysis.aggregates.penaltyRate || 0)}</div></div>
+        <div class="card"><strong>Recovery Rate</strong><div class="metric">${formatPercent(analysis.aggregates.recoveryRate || 0)}</div></div>
+        <div class="card"><strong>Missed-Day Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.missedDayPenaltyRate || 0)}</div></div>
+        <div class="card"><strong>Calorie Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.caloriePenaltyRate || 0)}</div></div>
+      </div>
+      <div class="msg good">${analysis.aggregates.restDayMessage || ""}</div>
+    `;
+    return;
+  }
+
+  if (targetKey === "quests") {
+    const analysis = analyzeQuests(state, WINDOW_DAYS);
+    const questRows = analysis.series
+      .map((item) => `<tr><td>${item.meta.label}</td><td>${item.meta.current}/${item.meta.target}</td><td>${item.meta.accepted ? "Yes" : "No"}</td></tr>`)
+      .join("");
+
+    detailContent.innerHTML = `
+      <div class="row dashboard-detail-head"><button id="dashboard-detail-back" class="ghost" type="button">← Back to overview</button></div>
+      <h3>Quest Progress Details</h3>
+      <div class="cards dashboard-summary">
+        <div class="card"><strong>Accepted</strong><div class="metric">${analysis.aggregates.acceptedCount}/${analysis.aggregates.totalQuests}</div></div>
+        <div class="card"><strong>Completed</strong><div class="metric">${analysis.aggregates.completedCount}</div></div>
+      </div>
+      <table><thead><tr><th>Quest</th><th>Progress</th><th>Accepted</th></tr></thead><tbody>${questRows}</tbody></table>
+    `;
+    return;
+  }
+
+  if (targetKey === "reviews") {
+    const analysis = analyzeReviews(state, WINDOW_DAYS);
+    detailContent.innerHTML = `
+      <div class="row dashboard-detail-head"><button id="dashboard-detail-back" class="ghost" type="button">← Back to overview</button></div>
+      <h3>Review Reflection Details</h3>
+      <div class="cards dashboard-summary">
+        <div class="card"><strong>Total Reviews</strong><div class="metric">${analysis.aggregates.totalCount}</div></div>
+        <div class="card"><strong>Weekly</strong><div class="metric">${analysis.aggregates.weeklyCount}</div></div>
+        <div class="card"><strong>Monthly</strong><div class="metric">${analysis.aggregates.monthlyCount}</div></div>
+        <div class="card"><strong>Legacy Text Records</strong><div class="metric">${analysis.aggregates.legacyTextCount}</div></div>
+      </div>
+      <p class="muted">Structured reviews: ${analysis.aggregates.structuredCount}. This includes defensive compatibility for legacy text-only records.</p>
+    `;
+    return;
+  }
+
+  detailContent.innerHTML = '<div class="msg warn">Unsupported detail requested.</div>';
 }
 
 /**
