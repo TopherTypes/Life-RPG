@@ -107,6 +107,7 @@ export function loadState() {
         compactCards: Boolean(parsed.settings?.compactCards),
         enableAnimations: parsed.settings?.enableAnimations !== false,
         showTips: parsed.settings?.showTips !== false,
+        dashboardExpandedMetrics: parsed.settings?.dashboardExpandedMetrics === true,
         units: normalizeUnits(parsed.settings?.units),
       },
       goals: {
@@ -142,6 +143,7 @@ export function getDefaultState() {
       compactCards: false,
       enableAnimations: true,
       showTips: true,
+      dashboardExpandedMetrics: false,
       units: {
         height: "cm",
         weight: "kg",
