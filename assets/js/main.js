@@ -199,6 +199,8 @@ function onEntrySubmit(event) {
  */
 function saveWeeklyReview() {
   const period = document.getElementById("weekly-period").value;
+  // Treat the selected date as the canonical weekly key until a dedicated Monday-normalization helper is introduced.
+  const normalizedPeriod = period;
 
   // Capture each prompt independently so the review can be rendered as a compact summary later.
   const prompts = {
@@ -222,16 +224,7 @@ function saveWeeklyReview() {
   const hadExisting = Boolean(state.reviews.weekly[normalizedPeriod]);
   state.reviews.weekly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
-
-  // Event intent: capture review completion for reflection habit metrics.
-  track(ANALYTICS_EVENTS.REVIEW_SAVED, {
-    reviewType: "weekly",
-    period: normalizedPeriod,
-    hadExisting,
-    promptCount: Object.values(prompts).filter(Boolean).length,
-  });
-
-  showMessages("reviews-message", [`Weekly review saved to week starting ${normalizedPeriod} (Monday).`], "good");
+  showMessages("reviews-message", [`Weekly review saved for ${normalizedPeriod}.`], "good");
   renderReviewsList(state);
 }
 
@@ -240,6 +233,8 @@ function saveWeeklyReview() {
  */
 function saveMonthlyReview() {
   const period = document.getElementById("monthly-period").value;
+  // Preserve the selected date as-is; month start normalization is not currently applied in save flow.
+  const normalizedPeriod = period;
 
   // Keep prompt schema aligned with weekly review for predictable rendering logic.
   const prompts = {
@@ -262,16 +257,7 @@ function saveMonthlyReview() {
   const hadExisting = Boolean(state.reviews.monthly[normalizedPeriod]);
   state.reviews.monthly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
-
-  // Event intent: capture review completion for reflection habit metrics.
-  track(ANALYTICS_EVENTS.REVIEW_SAVED, {
-    reviewType: "monthly",
-    period: normalizedPeriod,
-    hadExisting,
-    promptCount: Object.values(prompts).filter(Boolean).length,
-  });
-
-  showMessages("reviews-message", [`Monthly review saved to ${normalizedPeriod} (first day of month).`], "good");
+  showMessages("reviews-message", [`Monthly review saved for ${normalizedPeriod}.`], "good");
   renderReviewsList(state);
 }
 
@@ -305,18 +291,36 @@ function preloadReviewForEdit(type, period) {
     return;
   }
 
+  // Normalize persisted review data so edit prefill works across both schemas:
+  // 1) New structured prompt fields (`wins`, `blockers`, `nextAction`, `confidence`).
+  // 2) Legacy records that only stored a single `text` blob.
+  const legacyText = typeof review.text === "string" ? review.text.trim() : "";
+  const structuredFields = {
+    wins: typeof review.wins === "string" ? review.wins.trim() : "",
+    blockers: typeof review.blockers === "string" ? review.blockers.trim() : "",
+    nextAction: typeof review.nextAction === "string" ? review.nextAction.trim() : "",
+    confidence: typeof review.confidence === "string" ? review.confidence.trim() : "",
+  };
+
+  // Legacy migration fallback: if structured fields are empty but `text` exists,
+  // seed it into `wins` so users can split it into prompt fields before saving.
+  const hasStructuredValue = Object.values(structuredFields).some(Boolean);
+  if (!hasStructuredValue && legacyText) {
+    structuredFields.wins = legacyText;
+  }
+
   if (type === "weekly") {
     document.getElementById("weekly-period").value = period;
-    document.getElementById("weekly-wins").value = review.wins || "";
-    document.getElementById("weekly-blockers").value = review.blockers || "";
-    document.getElementById("weekly-next-action").value = review.nextAction || "";
-    document.getElementById("weekly-confidence").value = review.confidence || "";
+    document.getElementById("weekly-wins").value = structuredFields.wins;
+    document.getElementById("weekly-blockers").value = structuredFields.blockers;
+    document.getElementById("weekly-next-action").value = structuredFields.nextAction;
+    document.getElementById("weekly-confidence").value = structuredFields.confidence;
   } else {
     document.getElementById("monthly-period").value = period;
-    document.getElementById("monthly-wins").value = review.wins || "";
-    document.getElementById("monthly-blockers").value = review.blockers || "";
-    document.getElementById("monthly-next-action").value = review.nextAction || "";
-    document.getElementById("monthly-confidence").value = review.confidence || "";
+    document.getElementById("monthly-wins").value = structuredFields.wins;
+    document.getElementById("monthly-blockers").value = structuredFields.blockers;
+    document.getElementById("monthly-next-action").value = structuredFields.nextAction;
+    document.getElementById("monthly-confidence").value = structuredFields.confidence;
   }
 
   // Event intent: measure edit intent rate before save.
@@ -326,7 +330,18 @@ function preloadReviewForEdit(type, period) {
   });
 
   renderReviewsList(state);
-  showMessages("reviews-message", [`Loaded ${type} review for ${period}. Update text and click Save.`], "good");
+  const migrationHint =
+    !hasStructuredValue && legacyText
+      ? " Legacy note detected: it was placed in Wins—split it across Blockers, Next Action, and Confidence before saving."
+      : "";
+
+  showMessages(
+    "reviews-message",
+    [
+      `Loaded ${type} review for ${period}. Update the structured prompts (Wins, Blockers, Next Action, Confidence) and click Save.${migrationHint}`,
+    ],
+    "good"
+  );
 }
 
 /**

@@ -1,4 +1,5 @@
 import { ATTRIBUTE_SKILLS, QUESTS } from "./constants.js";
+import { applyBehaviorXpAdjustments, evaluateBehaviorMechanics } from "./behavior.js";
 
 /**
  * Exponential level curve baseline from product decisions.
@@ -42,19 +43,22 @@ export function computeSkillGains(entry) {
  * Builds full progression from raw entries, ensuring deterministic recompute after edits.
  */
 export function computeProgression(entriesMap, acceptedQuests = {}) {
-  const orderedEntries = Object.keys(entriesMap)
-    .sort((a, b) => a.localeCompare(b))
-    .map((dateKey) => entriesMap[dateKey]);
+  const orderedDateKeys = Object.keys(entriesMap).sort((a, b) => a.localeCompare(b));
+  const orderedEntries = orderedDateKeys.map((dateKey) => entriesMap[dateKey]);
   const skillXp = {};
-  let overallXp = 0;
+  let baseOverallXp = 0;
 
   orderedEntries.forEach((entry) => {
-    overallXp += 20;
+    baseOverallXp += 20;
     const gains = computeSkillGains(entry);
     Object.entries(gains).forEach(([skill, xp]) => {
       skillXp[skill] = (skillXp[skill] || 0) + xp;
     });
   });
+
+  const behavior = evaluateBehaviorMechanics(orderedDateKeys);
+  const xpAdjustments = applyBehaviorXpAdjustments(baseOverallXp, behavior.penaltyRate, behavior.recoveryRate);
+  const overallXp = xpAdjustments.adjustedOverallXp;
 
   const attributeXp = Object.fromEntries(
     Object.entries(ATTRIBUTE_SKILLS).map(([attribute, skills]) => {
@@ -64,7 +68,18 @@ export function computeProgression(entriesMap, acceptedQuests = {}) {
   );
 
   const quests = computeQuestProgress(orderedEntries, acceptedQuests);
-  return { overallXp, skillXp, attributeXp, quests, orderedEntries };
+  return {
+    overallXp,
+    baseOverallXp,
+    skillXp,
+    attributeXp,
+    quests,
+    orderedEntries,
+    behavior: {
+      ...behavior,
+      ...xpAdjustments,
+    },
+  };
 }
 
 /**
@@ -98,6 +113,7 @@ export function computeStreakMetrics(entriesMap) {
       continue;
     }
 
+    // Any day gap >1 explicitly breaks the streak and restarts counting at the current entry.
     currentRun = 1;
   }
 
