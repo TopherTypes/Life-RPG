@@ -144,6 +144,7 @@
         <div class="card">
           <h3>Behavior</h3>
           <label><input id="setting-showtips" type="checkbox" checked /> Show guidance tips on dashboard</label>
+          <label class="label-top"><input id="setting-dynamic-calorie-range" type="checkbox" /> Use adaptive TDEE for calorie adherence mechanics</label>
 
           <label for="setting-height-unit" class="label-top">Preferred Height Units</label>
           <select id="setting-height-unit">
@@ -201,8 +202,10 @@
           </select>
           <p id="profile-activity-error" class="field-error" aria-live="polite"></p>
 
-          <label for="profile-tdee" class="label-top">Estimated TDEE (kcal/day)</label>
+          <label for="profile-tdee" class="label-top">Baseline TDEE (kcal/day)</label>
           <input id="profile-tdee" type="number" readonly />
+          <p id="profile-tdee-dynamic" class="muted">Adaptive TDEE: —</p>
+          <p id="profile-tdee-delta" class="muted">Delta: —</p>
 
           <p id="profile-guidance" class="muted spacer-top">Fill all profile fields to calculate TDEE. Leave fields blank if you do not want personalized calorie guidance.</p>
           <button id="save-profile" class="primary spacer-top" type="button">Save Profile</button>

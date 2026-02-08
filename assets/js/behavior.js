@@ -1,5 +1,5 @@
 import { BEHAVIOR_CONFIG } from "./constants.js";
-import { computeHealthyCalorieRange, isProfileComplete } from "./profile-metrics.js";
+import { computeDynamicTdee, computeHealthyCalorieRangeFromTdee, isProfileComplete } from "./profile-metrics.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -26,6 +26,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *     rangeMin: number | null,
  *     rangeMax: number | null,
  *     enabled: boolean,
+ *     tdeeMode: "baseline" | "dynamic" | "disabled",
+ *     baselineTdee: number | null,
+ *     dynamicTdee: number | null,
  *   },
  *   restDay: {
  *     eligible: boolean,
@@ -52,6 +55,9 @@ export function evaluateBehaviorMechanics(orderedDateKeys, entriesMap = {}, prof
         rangeMin: null,
         rangeMax: null,
         enabled: false,
+        tdeeMode: "disabled",
+        baselineTdee: null,
+        dynamicTdee: null,
       },
       restDay: {
         eligible: false,
@@ -111,7 +117,14 @@ export function evaluateBehaviorMechanics(orderedDateKeys, entriesMap = {}, prof
  * Deterministically evaluates calorie adherence from recent entries.
  */
 export function evaluateCalorieAdherencePenalty(orderedDateKeys, entriesMap = {}, profile = {}) {
-  const healthyRange = isProfileComplete(profile) ? computeHealthyCalorieRange(profile, "maintain") : null;
+  const recentEntries = orderedDateKeys.map((dateKey) => entriesMap[dateKey]).filter(Boolean);
+  const baselineTdee = isProfileComplete(profile) ? computeDynamicTdee(profile, recentEntries).baselineTdee : null;
+  const dynamicTdee = isProfileComplete(profile) ? computeDynamicTdee(profile, recentEntries).dynamicTdee : null;
+
+  const dynamicEnabled = profile?.dynamicTdeeEnabled === true;
+  const activeTdee = dynamicEnabled ? dynamicTdee : baselineTdee;
+  const healthyRange = computeHealthyCalorieRangeFromTdee(activeTdee, "maintain");
+
   if (!healthyRange) {
     return {
       caloriePenaltyRate: 0,
@@ -123,6 +136,9 @@ export function evaluateCalorieAdherencePenalty(orderedDateKeys, entriesMap = {}
         rangeMin: null,
         rangeMax: null,
         enabled: false,
+        tdeeMode: "disabled",
+        baselineTdee,
+        dynamicTdee,
       },
     };
   }
@@ -168,6 +184,9 @@ export function evaluateCalorieAdherencePenalty(orderedDateKeys, entriesMap = {}
       rangeMin: healthyRange.min,
       rangeMax: healthyRange.max,
       enabled: true,
+      tdeeMode: dynamicEnabled ? "dynamic" : "baseline",
+      baselineTdee,
+      dynamicTdee,
     },
   };
 }

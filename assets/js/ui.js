@@ -1,4 +1,5 @@
 import { QUESTS, DAILY_FIELDS, DAILY_FIELD_LABELS } from "./constants.js";
+import { computeDynamicTdee } from "./profile-metrics.js";
 import { avg, escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
 import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 import {
@@ -188,7 +189,23 @@ export function hydrateProfile(state, units = { height: "cm", weight: "kg" }) {
   setValue("profile-weight", weightDisplay.whole);
   setValue("profile-weight-secondary", weightDisplay.fraction);
   setValue("profile-activity", profile.activityLevel);
-  setValue("profile-tdee", profile.tdee !== null && profile.tdee !== undefined ? Math.round(profile.tdee) : "");
+  setValue("profile-tdee", profile.baselineTdee !== null && profile.baselineTdee !== undefined ? Math.round(profile.baselineTdee) : "");
+
+  const dynamicLine = document.getElementById("profile-tdee-dynamic");
+  const deltaLine = document.getElementById("profile-tdee-delta");
+  const orderedEntries = Object.values(state.entries || {}).sort((a, b) => a.date.localeCompare(b.date));
+  const dynamicSummary = computeDynamicTdee(profile, orderedEntries);
+  if (dynamicLine) {
+    const dynamicValue = Number.isFinite(dynamicSummary.dynamicTdee) ? `${dynamicSummary.dynamicTdee} kcal/day` : "—";
+    dynamicLine.textContent = `Adaptive TDEE: ${dynamicValue}`;
+  }
+  if (deltaLine) {
+    const deltaPrefix = dynamicSummary.delta > 0 ? "+" : "";
+    const deltaText = Number.isFinite(dynamicSummary.dynamicTdee)
+      ? `${deltaPrefix}${dynamicSummary.delta} kcal/day (${deltaPrefix}${(dynamicSummary.deltaRatio * 100).toFixed(1)}%)`
+      : "—";
+    deltaLine.textContent = `Delta: ${deltaText} • ${dynamicSummary.interpretation}`;
+  }
 
   clearProfileFieldErrors();
 }
@@ -455,6 +472,24 @@ function formatPercent(rate) {
 }
 
 /**
+ * Builds adaptive TDEE display metadata for dashboard and metric detail views.
+ */
+function buildDynamicTdeeSummary(state) {
+  const orderedEntries = Object.values(state.entries || {}).sort((a, b) => a.date.localeCompare(b.date));
+  const summary = computeDynamicTdee(state.profile || {}, orderedEntries);
+  const deltaPrefix = summary.delta > 0 ? "+" : "";
+  const deltaText = Number.isFinite(summary.dynamicTdee)
+    ? `${deltaPrefix}${summary.delta} kcal/day (${deltaPrefix}${(summary.deltaRatio * 100).toFixed(1)}%)`
+    : "—";
+
+  return {
+    ...summary,
+    deltaText,
+    enabled: state.profile?.dynamicTdeeEnabled === true,
+  };
+}
+
+/**
  * Renders the dashboard aggregate and 7-day trend summary views.
  */
 export function renderDashboard(state) {
@@ -462,6 +497,7 @@ export function renderDashboard(state) {
   const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
   const latest7 = entries.slice(-7);
+  const tdeeSummary = buildDynamicTdeeSummary(state);
 
   const averages = {
     calories: avg(latest7.map((e) => e.calories).filter((v) => v !== null)),
@@ -557,6 +593,9 @@ export function renderDashboard(state) {
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
       <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)} • Calorie penalty ${formatPercent(progression.behavior.caloriePenaltyRate)}</div></div>
       ${detailMetricCards}
+      <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary.baselineTdee ?? "—"}</div><div class="muted">Profile-derived estimate.</div></div>
+      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive calorie range in Settings to use this estimate."}</div></div>
+      <div class="card"><strong>Adaptive Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Bounded and smoothed to reduce noise.</div></div>
     </div>
 
     <h3 class="spacer-top">7-Day Mood Graph</h3>
@@ -579,7 +618,7 @@ export function renderDashboard(state) {
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
       <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
-      <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized TDEE range when profile data is complete.</div></div>
+      <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
       <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
     </div>
 
@@ -646,6 +685,7 @@ export function renderMetricDetail(state, metricKey) {
     .join("");
 
   const emptyWindowMessage = `Need at least ${MIN_POINTS_FOR_INSIGHTS} logged ${meta.label.toLowerCase()} data points in the last ${WINDOW_DAYS} days to unlock this insight.`;
+  const tdeeSummary = metricKey === "calories" ? buildDynamicTdeeSummary(state) : null;
 
   const recentRows = orderedEntries
     .slice(-14)
@@ -676,6 +716,15 @@ export function renderMetricDetail(state, metricKey) {
     ${windowValues.length >= MIN_POINTS_FOR_INSIGHTS
       ? `<table aria-label="Weekday ${meta.label} averages"><thead><tr><th>Weekday</th><th>Average</th><th>Highlight</th></tr></thead><tbody>${weekdayRows}</tbody></table>`
       : `<div class="msg warn">${emptyWindowMessage}</div>`}
+
+    ${metricKey === "calories"
+      ? `<h4 class="spacer-top">Adaptive Calorie Targets</h4>
+    <div class="cards dashboard-summary">
+      <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary?.baselineTdee ?? "—"}</div><div class="muted">Profile equation anchor.</div></div>
+      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary?.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary?.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+      <div class="card"><strong>Delta vs Baseline</strong><div class="metric">${tdeeSummary?.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Guardrails: ±12% cap + smoothing.</div></div>
+    </div>`
+      : ""}
 
     <h4 class="spacer-top">Recent ${meta.label} Records (Last 14)</h4>
     <table aria-label="Recent ${meta.label} records">
@@ -846,6 +895,7 @@ export function hydrateSettings(state) {
   document.getElementById("setting-compact").checked = state.settings.compactCards;
   document.getElementById("setting-animations").checked = state.settings.enableAnimations;
   document.getElementById("setting-showtips").checked = state.settings.showTips;
+  document.getElementById("setting-dynamic-calorie-range").checked = state.profile?.dynamicTdeeEnabled === true;
   document.getElementById("setting-height-unit").value = state.settings.units?.height || "cm";
   document.getElementById("setting-weight-unit").value = state.settings.units?.weight || "kg";
 }
