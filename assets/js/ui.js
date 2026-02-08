@@ -1,6 +1,13 @@
 import { QUESTS, DAILY_FIELDS, DAILY_FIELD_LABELS } from "./constants.js";
 import { avg, escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
 import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
+import {
+  WEEKDAY_ORDER,
+  computeMetricAverage,
+  computeWeekdayAverages,
+  findHighestLowestWeekday,
+  getMetricWindow,
+} from "./metric-analytics.js";
 
 const recapState = {
   pages: [],
@@ -585,6 +592,8 @@ export function renderDashboard(state) {
  * Renders a metric-specific detail panel from shared metadata and recent entries.
  */
 export function renderMetricDetail(state, metricKey) {
+  const MIN_POINTS_FOR_INSIGHTS = 5;
+  const WINDOW_DAYS = 30;
   const detailContent = document.getElementById("dashboard-detail-content");
   if (!detailContent) return;
 
@@ -597,8 +606,10 @@ export function renderMetricDetail(state, metricKey) {
   const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
   const orderedEntries = progression.orderedEntries;
   const entriesWithMetric = orderedEntries.filter((entry) => entry[metricKey] !== null);
-  const latest7 = orderedEntries.slice(-7);
-  const latest7Metric = latest7.map((entry) => entry[metricKey]).filter((value) => value !== null);
+  const metricWindow = getMetricWindow(orderedEntries, metricKey, WINDOW_DAYS);
+  const windowValues = metricWindow.map((point) => point.value).filter((value) => Number.isFinite(value));
+  const weekdayAverages = computeWeekdayAverages(metricWindow);
+  const weekdayExtremes = findHighestLowestWeekday(weekdayAverages);
 
   const formatMetricValue = (value, decimals = meta.valueDecimals) => {
     if (value === null || value === undefined) return formatValue(null);
@@ -608,7 +619,33 @@ export function renderMetricDetail(state, metricKey) {
   const latestValue = entriesWithMetric.length ? entriesWithMetric[entriesWithMetric.length - 1][metricKey] : null;
   const minValue = entriesWithMetric.length ? Math.min(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
   const maxValue = entriesWithMetric.length ? Math.max(...entriesWithMetric.map((entry) => entry[metricKey])) : null;
-  const last7Average = latest7Metric.length ? avg(latest7Metric) : null;
+  const last30Average = computeMetricAverage(metricWindow);
+
+  const maxWindowValue = windowValues.length ? Math.max(...windowValues) : 0;
+  const metricBars = metricWindow
+    .map((point) => {
+      const hasValue = Number.isFinite(point.value);
+      const barHeight = hasValue && maxWindowValue > 0 ? Math.max(6, (point.value / maxWindowValue) * 100) : 14;
+      const shortDate = point.date.slice(5);
+      return `
+        <div class="bar-col" title="${point.date}: ${formatMetricValue(point.value)}">
+          <div class="bar ${hasValue ? "" : "bar-missing"}" style="height:${barHeight}%"></div>
+          <div>${shortDate}</div>
+        </div>`;
+    })
+    .join("");
+
+  const weekdayRows = WEEKDAY_ORDER
+    .map((day) => {
+      const value = weekdayAverages[day];
+      const isHighest = weekdayExtremes.highest?.day === day;
+      const isLowest = weekdayExtremes.lowest?.day === day;
+      const tag = isHighest ? '<span class="pill">Highest</span>' : isLowest ? '<span class="pill muted-pill">Lowest</span>' : "";
+      return `<tr><td>${day}</td><td>${formatMetricValue(value, meta.averageDecimals)}</td><td>${tag}</td></tr>`;
+    })
+    .join("");
+
+  const emptyWindowMessage = `Need at least ${MIN_POINTS_FOR_INSIGHTS} logged ${meta.label.toLowerCase()} data points in the last ${WINDOW_DAYS} days to unlock this insight.`;
 
   const recentRows = orderedEntries
     .slice(-14)
@@ -621,14 +658,24 @@ export function renderMetricDetail(state, metricKey) {
       <button id="dashboard-detail-back" class="ghost" type="button" aria-label="Return to dashboard overview">← Back to overview</button>
     </div>
     <h3>${meta.label} Details</h3>
-    <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last 7 days sample size: ${latest7Metric.length}</p>
+    <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last ${WINDOW_DAYS} days sample size: ${windowValues.length}</p>
 
     <div class="cards dashboard-summary">
       <div class="card"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(latestValue)}</div></div>
-      <div class="card"><strong>7-Day Average</strong><div class="metric">${formatMetricValue(last7Average, meta.averageDecimals)}</div></div>
+      <div class="card"><strong>${WINDOW_DAYS}-Day Average</strong><div class="metric">${windowValues.length >= MIN_POINTS_FOR_INSIGHTS ? formatMetricValue(last30Average, meta.averageDecimals) : formatValue(null)}</div></div>
       <div class="card"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(minValue)}</div></div>
       <div class="card"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(maxValue)}</div></div>
     </div>
+
+    <h4 class="spacer-top">${WINDOW_DAYS}-Day ${meta.label} Trend</h4>
+    ${windowValues.length >= MIN_POINTS_FOR_INSIGHTS
+      ? `<div class="chart-wrap metric-window-chart" aria-label="${WINDOW_DAYS}-day ${meta.label} trend graph">${metricBars}</div>`
+      : `<div class="msg warn">${emptyWindowMessage}</div>`}
+
+    <h4 class="spacer-top">Weekday ${meta.label} Averages</h4>
+    ${windowValues.length >= MIN_POINTS_FOR_INSIGHTS
+      ? `<table aria-label="Weekday ${meta.label} averages"><thead><tr><th>Weekday</th><th>Average</th><th>Highlight</th></tr></thead><tbody>${weekdayRows}</tbody></table>`
+      : `<div class="msg warn">${emptyWindowMessage}</div>`}
 
     <h4 class="spacer-top">Recent ${meta.label} Records (Last 14)</h4>
     <table aria-label="Recent ${meta.label} records">
