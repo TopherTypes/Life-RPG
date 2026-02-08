@@ -382,6 +382,8 @@ function resetAccount() {
   state.reviews = fresh.reviews;
   state.acceptedQuests = fresh.acceptedQuests;
   state.settings = fresh.settings;
+  // Keep reset behavior aligned with schema evolution by resetting profile too.
+  state.profile = fresh.profile;
   persistState(state);
 
   document.getElementById("entry-form").reset();
