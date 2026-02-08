@@ -59,6 +59,7 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 - After submit, system shows recap with progression outcomes.
 - Recap should include XP/stat/quest change indicators.
 - MVP baseline formulas are documented in `DECISIONS.md` (Confirmed MVP Mechanics Baseline) and can be tuned after initial implementation.
+- First-pass behavior mechanics are active: protected rest-day eligibility, soft missed-day XP modifiers, and comeback recovery modifiers are recomputed deterministically from stored entries.
 
 ### 5.5 Quests
 - System supports daily, weekly, and long-term quests.
@@ -90,12 +91,9 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 - Monetization.
 
 ## 8. Open Specification Questions (TBD)
-1. Soft-penalty model for missed days (Milestone 2).
-2. Rest-day anti-abuse mechanism (Milestone 2).
-3. Recovery/comeback mechanics (Milestone 2).
-4. Analytics event instrumentation strategy.
-5. Mental health boundaries/disclaimers language.
-6. Weekly/monthly guided review templates and prompts.
+1. Analytics event instrumentation strategy.
+2. Mental health boundaries/disclaimers language.
+3. Weekly/monthly guided review templates and prompts.
 ## 9. Acceptance Criteria for MVP (Draft)
 - User can complete daily entry by providing a date and at least one metric.
 - Daily entry validation enforces hard blocking rules for ranges/non-negative values and exercise-field dependency.

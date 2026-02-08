@@ -13,7 +13,7 @@ This roadmap is milestone-based and optimized for solo development with Codex su
 - **Daily MVP loop is active:** date-based entry capture, validation + anomaly warnings, 24-hour edit window checks, recap modal, and progression recompute are implemented in `assets/js/main.js`, `assets/js/validation.js`, `assets/js/ui.js`, and `assets/js/progression.js`.
 - **Quest and dashboard views are active:** accept-to-track quest flow, XP/attribute progress cards, streaks, and recent trend summaries are implemented in `assets/js/ui.js` + `assets/js/progression.js`.
 - **Review capture exists (Milestone 2 partial):** weekly/monthly prompt forms and local persistence/listing are present in `index.html` + `assets/js/main.js` + `assets/js/ui.js`.
-- **Not yet implemented:** penalty/recovery mechanics, rest-day anti-abuse logic, and deeper analytics instrumentation remain pending.
+- **Not yet implemented:** deeper analytics instrumentation remains pending; first-pass behavior mechanics are now shipped.
 
 ## Milestone 0 — Product Foundation ✅ Complete
 **Goal:** Lock core direction, define MVP boundaries, and document open decisions.
@@ -63,8 +63,6 @@ Status:
 - Monthly guided review capture exists (structured prompts + local save/list).
 
 ### Pending
-- Rest-day mechanic with anti-abuse logic.
-- Soft-penalty behavior for missed days and recovery tuning.
 - Improved/deeper analytics views for self-awareness and planning quality.
 
 Exit criteria:
@@ -72,7 +70,7 @@ Exit criteria:
 - Penalty/recovery systems are fair and understandable.
 
 Status:
-- In progress: review capture is present; behavior mechanics and deeper analytics are not yet shipped.
+- In progress: review capture and first-pass behavior mechanics are present; deeper analytics remain pending.
 
 ## Milestone 3 — First Full Version (V1)
 **Goal:** Introduce adaptive progression and deeper planning while staying solo/private.

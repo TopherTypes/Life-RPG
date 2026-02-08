@@ -151,8 +151,14 @@ export function renderRecap(entry, state) {
     ? `<ul>${bonusXp.reasons.map((reason) => `<li>${reason}</li>`).join("")}</ul>`
     : "<p class=\"muted\">No bonus XP earned today.</p>";
 
+  const behaviorSummary = progression.behavior;
+  const behaviorMessage = behaviorSummary.restDay.message;
+  const behaviorHint = behaviorSummary.recoveryXp > 0
+    ? `Recovery boost active (+${behaviorSummary.recoveryXp} XP).`
+    : "Recovery boost activates after a short comeback streak.";
+
   recapState.pages = [
-    `<div class="recap-page active"><h4>1) Skills</h4><p class="muted">Base XP: +${baseXp} XP • Bonus XP: +${bonusXp.total} XP • Total: +${totalXp} XP</p><table><thead><tr><th>Skill</th><th>Gain</th></tr></thead><tbody>${skillRows}</tbody></table><h5 class="spacer-top">Bonus XP Breakdown</h5>${bonusReasons}</div>`,
+    `<div class="recap-page active"><h4>1) Skills</h4><p class="muted">Base XP: +${baseXp} XP • Bonus XP: +${bonusXp.total} XP • Total: +${totalXp} XP</p><table><thead><tr><th>Skill</th><th>Gain</th></tr></thead><tbody>${skillRows}</tbody></table><h5 class="spacer-top">Bonus XP Breakdown</h5>${bonusReasons}<h5 class="spacer-top">Behavior Mechanics</h5><p class="muted">Penalty rate: ${formatPercent(behaviorSummary.penaltyRate)} • Recovery rate: ${formatPercent(behaviorSummary.recoveryRate)}</p><p>${behaviorHint}</p><p class="muted">${behaviorMessage}</p></div>`,
     `<div class="recap-page"><h4>2) Attributes</h4><div class="cards">${attributeCards}</div></div>`,
     `<div class="recap-page"><h4>3) Quests</h4><table><thead><tr><th>Quest</th><th>Progress</th></tr></thead><tbody>${questRows}</tbody></table></div>`,
   ];
@@ -264,6 +270,14 @@ function calculateBonusXp(entry) {
   return { total, reasons };
 }
 
+
+/**
+ * Formats behavior rates as a human-readable percentage string.
+ */
+function formatPercent(rate) {
+  return `${Math.round(rate * 100)}%`;
+}
+
 /**
  * Renders the dashboard aggregate and 7-day trend summary views.
  */
@@ -347,6 +361,7 @@ export function renderDashboard(state) {
     <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
       <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
       <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
+      <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
       <div class="card"><strong>7-Day Avg Mood</strong><div class="metric">${formatAverage("mood")}</div></div>
       <div class="card"><strong>7-Day Avg Sleep (hrs)</strong><div class="metric">${formatAverage("sleepHours")}</div></div>
       <div class="card"><strong>7-Day Avg Steps</strong><div class="metric">${formatAverage("steps", 0)}</div></div>
@@ -369,6 +384,13 @@ export function renderDashboard(state) {
 
     <h3>Attribute Levels</h3>
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">${attributeCards}</div>
+
+    <h3 class="spacer-top">Behavior Mechanics</h3>
+    <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+      <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
+      <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.penaltyRate)}</div><div class="muted">A gentle modifier that can be reduced by logging consistently.</div></div>
+      <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
+    </div>
 
     <h3 class="spacer-top">Quest Highlights</h3>
     <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>

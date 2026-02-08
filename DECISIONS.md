@@ -84,9 +84,9 @@ This document records resolved decisions and unresolved decisions.
 - [ ] Set a concrete MVP date.
 
 ### Mechanics and balancing
-- [ ] Define soft-penalty system for missed days.
-- [ ] Define rest-day anti-abuse model (diminishing returns vs explicit penalties).
-- [ ] Define recovery/comeback mechanics.
+- [x] Define soft-penalty system for missed days (first-pass shipped).
+- [x] Define rest-day anti-abuse model (first-pass shipped).
+- [x] Define recovery/comeback mechanics (first-pass shipped).
 
 ### UX and transparency
 - [ ] Define “mystique mode” vs “verbose/clear mode” behavior in settings.
@@ -207,3 +207,11 @@ This document records resolved decisions and unresolved decisions.
 - Add new entries with date and rationale.
 - Move items from TBD to Confirmed when decided.
 - If reversing a decision, preserve prior decision in history with reason.
+
+
+### Behavior mechanics baseline (v0.2 first-pass)
+- **Rest-day eligibility:** one protected rest day per rolling 7-day window after reaching a 3-day active streak.
+- **Soft penalty:** each implicit missed day between logged dates applies a 2% XP reduction, capped at 25%.
+- **Recovery/comeback:** after a streak break, a comeback run of at least 3 days grants +1% XP per day beyond trigger, capped at +8%.
+- **Determinism rule:** all behavior outputs are recomputed from stored date keys only (no ephemeral counters).
+- **Messaging rule:** copy is non-punitive and frames penalties as temporary modifiers that can be offset by renewed consistency.
