@@ -47,4 +47,16 @@ Mandatory daily metrics:
 - Contribution rules: [`CONTRIBUTING.md`](./CONTRIBUTING.md)
 
 ## Status
-Planning phase with MVP baseline mechanics now documented; remaining TBD items are tracked in `DECISIONS.md`.
+Active MVP vertical slice: core daily tracking, progression, and review workflows are implemented and running locally.
+
+## Current Implemented State
+- Daily entry form with edit-window checks.
+- Post-submit recap modal.
+- Dashboard trends/averages and streaks.
+- Quest acceptance plus progress tracking.
+- Weekly/monthly review capture.
+- Local settings and account reset.
+- LocalStorage persistence model via `liferpg.m1.vslice`.
+
+## Planned Next
+The roadmap still includes future expansion work beyond the current vertical slice, including deeper progression systems, broader analytics, and post-MVP platform capabilities. See [`ROADMAP.md`](./ROADMAP.md) for sequencing and [`DECISIONS.md`](./DECISIONS.md) for open planning items.
