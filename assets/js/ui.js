@@ -429,6 +429,18 @@ function summarizeReview(review) {
  * Renders recent weekly/monthly review notes.
  */
 export function renderReviewsList(state) {
+  const pageSize = 5;
+  const weeklyEntries = Object.entries(state.reviews.weekly).sort(([a], [b]) => b.localeCompare(a));
+  const monthlyEntries = Object.entries(state.reviews.monthly).sort(([a], [b]) => b.localeCompare(a));
+
+  // Keep limits bounded to available data so pagination controls reflect real list size after edits/deletes.
+  reviewsUiState.weeklyLimit = Math.max(pageSize, Math.min(reviewsUiState.weeklyLimit, weeklyEntries.length || pageSize));
+  reviewsUiState.monthlyLimit = Math.max(pageSize, Math.min(reviewsUiState.monthlyLimit, monthlyEntries.length || pageSize));
+
+  // Pagination is intentionally in-memory only: limits reset on refresh to keep first paint compact and predictable.
+  const visibleWeeklyEntries = weeklyEntries.slice(0, reviewsUiState.weeklyLimit);
+  const visibleMonthlyEntries = monthlyEntries.slice(0, reviewsUiState.monthlyLimit);
+
   /**
    * Renders one review item with consistent metadata and action hooks.
    * Data attributes are used by delegated event handlers in main.js.
@@ -439,7 +451,7 @@ export function renderReviewsList(state) {
         <strong>${period}</strong>
         <span class="muted">${type} review</span>
       </div>
-      <p>${escapeHtml(review.text)}</p>
+      <p>${summarizeReview(review)}</p>
       <div class="review-actions">
         <button
           type="button"
@@ -459,22 +471,18 @@ export function renderReviewsList(state) {
     </li>
   `;
 
-  const weekly = Object.entries(state.reviews.weekly)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
+  const weekly = visibleWeeklyEntries
+    .map(([period, review]) => renderReviewItem("weekly", period, review))
     .join("") || "<li>No weekly reviews yet.</li>";
 
-  const monthly = Object.entries(state.reviews.monthly)
-    .sort(([a], [b]) => b.localeCompare(a))
-    .slice(0, 5)
-    .map(([period, review]) => `<li><strong>${period}</strong>: ${summarizeReview(review)}</li>`)
+  const monthly = visibleMonthlyEntries
+    .map(([period, review]) => renderReviewItem("monthly", period, review))
     .join("") || "<li>No monthly reviews yet.</li>";
 
   const weeklyShowMoreVisible = weeklyEntries.length > reviewsUiState.weeklyLimit;
-  const weeklyShowLessVisible = reviewsUiState.weeklyLimit > 5;
+  const weeklyShowLessVisible = weeklyEntries.length > pageSize && reviewsUiState.weeklyLimit > pageSize;
   const monthlyShowMoreVisible = monthlyEntries.length > reviewsUiState.monthlyLimit;
-  const monthlyShowLessVisible = reviewsUiState.monthlyLimit > 5;
+  const monthlyShowLessVisible = monthlyEntries.length > pageSize && reviewsUiState.monthlyLimit > pageSize;
 
   document.getElementById("reviews-list").innerHTML = `
     <div class="row">
@@ -500,7 +508,6 @@ export function renderReviewsList(state) {
   // Rebind controls after each render because the list container is fully replaced.
   document.querySelectorAll(".review-pagination-btn").forEach((button) => {
     button.addEventListener("click", () => {
-      const pageSize = 5;
       switch (button.dataset.reviewAction) {
         case "weekly-more":
           reviewsUiState.weeklyLimit = Math.min(reviewsUiState.weeklyLimit + pageSize, weeklyEntries.length);
