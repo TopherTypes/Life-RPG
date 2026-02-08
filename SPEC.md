@@ -28,13 +28,25 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 
 ### 5.1 Daily Entry
 - System must allow one daily entry per date.
-- System must collect required metrics:
+- Submission requires a date plus at least one metric value (all metric fields are optional at submit time).
+- Supported metric fields in current implementation:
   - calories in
   - hours of sleep
   - mood
   - steps
-  - exercise
+  - exercise minutes + exercise effort (paired fields; no exercise-type field in current UI)
+- Hard validation rules (blocking):
+  - mood and effort values must be within allowed ranges.
+  - numeric inputs must be non-negative.
+  - exercise minutes and exercise effort are dependent: if one is provided, the other is required.
+- Soft anomaly warnings (non-blocking):
+  - sleep, steps, calories, and exercise values may trigger anomaly warnings at configured thresholds.
+  - flagged entries are still included/saved; warnings are advisory only.
 - Data input is manual only.
+
+#### Current implementation note
+- Earlier intent required every daily metric to be completed on each submission. The current implementation allows partial submission (date + at least one metric) to preserve fast capture and reduce missed logging.
+- If strict all-fields-required behavior is still desired, treat it as a deferred product decision to revisit in milestone planning rather than as an MVP requirement.
 
 ### 5.2 Daily Entry Timing
 - UX should optimize for 3–5 minute completion.
@@ -85,7 +97,9 @@ LifeRPG is a personal, solo web application that gamifies daily self-tracking in
 5. Mental health boundaries/disclaimers language.
 6. Weekly/monthly guided review templates and prompts.
 ## 9. Acceptance Criteria for MVP (Draft)
-- User can complete daily entry with required metrics.
+- User can complete daily entry by providing a date and at least one metric.
+- Daily entry validation enforces hard blocking rules for ranges/non-negative values and exercise-field dependency.
+- Daily entry anomaly thresholds raise warnings for outlier sleep/steps/calories/exercise values while still allowing save.
 - Entry data persists across page reloads/browser restarts (same device/browser profile).
 - User receives a recap after submission showing: skill XP gains, attribute progress, and quest progress.
 - User can review trend/progress summaries.
