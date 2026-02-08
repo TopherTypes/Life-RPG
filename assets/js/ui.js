@@ -1,5 +1,5 @@
 import { QUESTS, DAILY_FIELDS } from "./constants.js";
-import { avg, escapeHtml } from "./utils.js";
+import { avg, escapeHtml, convertHeightToDisplay, convertHeightToCm, convertWeightToDisplay, convertWeightToKg } from "./utils.js";
 import { computeSkillGains, computeProgression, computeStreakMetrics, levelFromXp } from "./progression.js";
 
 const recapState = {
@@ -135,7 +135,7 @@ export function readEntryFromForm() {
  * biological sex marker, and activity multiplier), so we hydrate these fields
  * on startup to keep TDEE guidance consistent across sessions.
  */
-export function hydrateProfile(state) {
+export function hydrateProfile(state, units = { height: "cm", weight: "kg" }) {
   const profile = state.profile || {};
 
   const setValue = (id, value) => {
@@ -146,8 +146,13 @@ export function hydrateProfile(state) {
 
   setValue("profile-age", profile.age);
   setValue("profile-gender", profile.gender);
-  setValue("profile-height", profile.heightCm);
-  setValue("profile-weight", profile.weightKg);
+  const heightDisplay = convertHeightToDisplay(profile.heightCm, units.height);
+  const weightDisplay = convertWeightToDisplay(profile.weightKg, units.weight);
+
+  setValue("profile-height", heightDisplay.whole);
+  setValue("profile-height-secondary", heightDisplay.fraction);
+  setValue("profile-weight", weightDisplay.whole);
+  setValue("profile-weight-secondary", weightDisplay.fraction);
   setValue("profile-activity", profile.activityLevel);
   setValue("profile-tdee", profile.tdee !== null && profile.tdee !== undefined ? Math.round(profile.tdee) : "");
 
@@ -158,7 +163,7 @@ export function hydrateProfile(state) {
  * Clears inline validation treatment for profile settings controls.
  */
 export function clearProfileFieldErrors() {
-  ["profile-age", "profile-gender", "profile-height", "profile-weight", "profile-activity"].forEach((fieldId) => {
+  ["profile-age", "profile-gender", "profile-height", "profile-height-secondary", "profile-weight", "profile-weight-secondary", "profile-activity"].forEach((fieldId) => {
     const input = document.getElementById(fieldId);
     const errorSlot = document.getElementById(`${fieldId}-error`);
     if (!input) return;
@@ -191,7 +196,7 @@ export function showProfileFieldErrors(fieldErrors = {}) {
  * This helper centralizes form parsing so controller code can validate once,
  * calculate TDEE deterministically, and persist a schema-safe profile payload.
  */
-export function readProfileFromForm() {
+export function readProfileFromForm(units = { height: "cm", weight: "kg" }) {
   const parseOptionalNumber = (id) => {
     const raw = document.getElementById(id).value.trim();
     if (!raw) return null;
@@ -211,11 +216,19 @@ export function readProfileFromForm() {
     return raw ? raw : null;
   };
 
+  const heightWhole = document.getElementById("profile-height").value.trim();
+  const heightSecondary = document.getElementById("profile-height-secondary").value.trim();
+  const weightWhole = document.getElementById("profile-weight").value.trim();
+  const weightSecondary = document.getElementById("profile-weight-secondary").value.trim();
+
+  const hasHeight = heightWhole.length > 0;
+  const hasWeight = weightWhole.length > 0;
+
   return {
     age: parseOptionalInteger("profile-age"),
     gender: normalizeOptionalEnum("profile-gender"),
-    heightCm: parseOptionalNumber("profile-height"),
-    weightKg: parseOptionalNumber("profile-weight"),
+    heightCm: hasHeight ? convertHeightToCm(heightWhole, heightSecondary || "0", units.height) : null,
+    weightKg: hasWeight ? convertWeightToKg(weightWhole, weightSecondary || "0", units.weight) : null,
     activityLevel: normalizeOptionalEnum("profile-activity"),
   };
 }
@@ -688,6 +701,8 @@ export function hydrateSettings(state) {
   document.getElementById("setting-compact").checked = state.settings.compactCards;
   document.getElementById("setting-animations").checked = state.settings.enableAnimations;
   document.getElementById("setting-showtips").checked = state.settings.showTips;
+  document.getElementById("setting-height-unit").value = state.settings.units?.height || "cm";
+  document.getElementById("setting-weight-unit").value = state.settings.units?.weight || "kg";
 }
 
 function formatValue(value) {

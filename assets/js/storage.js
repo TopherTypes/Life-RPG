@@ -1,7 +1,26 @@
-import { STORAGE_KEY, QUESTS } from "./constants.js";
+import { STORAGE_KEY, QUESTS, DAILY_FIELDS, UNIT_OPTIONS } from "./constants.js";
 
 const ALLOWED_GENDERS = new Set(["male", "female", "nonbinary", "prefer_not_to_say"]);
 const ALLOWED_ACTIVITY_LEVELS = new Set(["sedentary", "light", "moderate", "active", "very_active"]);
+
+
+/**
+ * Normalizes persisted unit preferences and falls back to metric defaults.
+ */
+function normalizeUnits(rawUnits = {}) {
+  const height = UNIT_OPTIONS.height.includes(rawUnits.height) ? rawUnits.height : "cm";
+  const weight = UNIT_OPTIONS.weight.includes(rawUnits.weight) ? rawUnits.weight : "kg";
+  return { height, weight };
+}
+
+/**
+ * Normalizes tracked metric goal identifiers against known daily fields.
+ */
+function normalizeTrackedMetrics(rawTrackedMetrics) {
+  if (!Array.isArray(rawTrackedMetrics)) return [...DAILY_FIELDS];
+  const normalized = rawTrackedMetrics.filter((field) => DAILY_FIELDS.includes(field));
+  return normalized.length ? normalized : [...DAILY_FIELDS];
+}
 
 /**
  * Normalizes a nullable numeric field from legacy payloads.
@@ -78,7 +97,12 @@ export function loadState() {
         compactCards: Boolean(parsed.settings?.compactCards),
         enableAnimations: parsed.settings?.enableAnimations !== false,
         showTips: parsed.settings?.showTips !== false,
+        units: normalizeUnits(parsed.settings?.units),
       },
+      goals: {
+        trackedMetrics: normalizeTrackedMetrics(parsed.goals?.trackedMetrics),
+      },
+      onboardingComplete: parsed.onboardingComplete === true,
       profile: normalizeProfile(parsed.profile),
     };
   } catch {
@@ -108,7 +132,15 @@ export function getDefaultState() {
       compactCards: false,
       enableAnimations: true,
       showTips: true,
+      units: {
+        height: "cm",
+        weight: "kg",
+      },
     },
+    goals: {
+      trackedMetrics: [...DAILY_FIELDS],
+    },
+    onboardingComplete: false,
     // Profile fields are nullable by default to support progressive onboarding
     // and backward compatibility with users created before profile data existed.
     profile: {

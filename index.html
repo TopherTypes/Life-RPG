@@ -131,7 +131,7 @@
 
     <section id="settings" class="tab panel hidden">
       <h2>Settings</h2>
-      <p class="muted">Change visual and behavior preferences for this local app profile.</p>
+      <p class="muted">Change visual and behavior preferences for this local app profile. Unit preferences are account-specific.</p>
       <div class="cards">
         <div class="card">
           <h3>Appearance</h3>
@@ -141,6 +141,20 @@
         <div class="card">
           <h3>Behavior</h3>
           <label><input id="setting-showtips" type="checkbox" checked /> Show guidance tips on dashboard</label>
+
+          <label for="setting-height-unit" class="label-top">Preferred Height Units</label>
+          <select id="setting-height-unit">
+            <option value="cm">Centimeters (cm)</option>
+            <option value="ft_in">Feet + Inches (ft/in)</option>
+          </select>
+
+          <label for="setting-weight-unit" class="label-top">Preferred Weight Units</label>
+          <select id="setting-weight-unit">
+            <option value="kg">Kilograms (kg)</option>
+            <option value="lb">Pounds (lb)</option>
+            <option value="st_lb">Stone + Pounds (st/lb)</option>
+          </select>
+
           <button id="reset-account" class="danger spacer-top" type="button">Reset to New Account</button>
         </div>
         <div class="card">
@@ -161,12 +175,16 @@
           </select>
           <p id="profile-gender-error" class="field-error" aria-live="polite"></p>
 
-          <label for="profile-height" class="label-top">Height (cm)</label>
-          <input id="profile-height" type="number" min="80" max="260" step="0.1" aria-describedby="profile-height-error profile-guidance" />
+          <label id="profile-height-label" for="profile-height" class="label-top">Height (cm)</label>
+          <input id="profile-height" type="number" min="0" step="0.1" aria-describedby="profile-height-error profile-guidance" />
+          <label id="profile-height-secondary-label" for="profile-height-secondary" class="label-top hidden">Height (in)</label>
+          <input id="profile-height-secondary" class="hidden" type="number" min="0" max="11" step="1" aria-describedby="profile-height-error profile-guidance" />
           <p id="profile-height-error" class="field-error" aria-live="polite"></p>
 
-          <label for="profile-weight" class="label-top">Weight (kg)</label>
-          <input id="profile-weight" type="number" min="20" max="400" step="0.1" aria-describedby="profile-weight-error profile-guidance" />
+          <label id="profile-weight-label" for="profile-weight" class="label-top">Weight (kg)</label>
+          <input id="profile-weight" type="number" min="0" step="0.1" aria-describedby="profile-weight-error profile-guidance" />
+          <label id="profile-weight-secondary-label" for="profile-weight-secondary" class="label-top hidden">Weight (lb)</label>
+          <input id="profile-weight-secondary" class="hidden" type="number" min="0" max="13" step="1" aria-describedby="profile-weight-error profile-guidance" />
           <p id="profile-weight-error" class="field-error" aria-live="polite"></p>
 
           <label for="profile-activity" class="label-top">Activity Level</label>
@@ -213,6 +231,91 @@
       <div class="modal-actions">
         <button id="recap-prev" class="ghost" type="button">Back</button>
         <button id="recap-next" class="primary" type="button">Next</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="onboarding-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card onboarding-card">
+      <div class="modal-head">
+        <h3>Welcome to LifeRPG</h3>
+      </div>
+      <p class="muted">Complete this guided setup to personalize your account. You can update everything later in Settings.</p>
+
+      <div class="onboarding-step" data-step="0">
+        <h4>Step 1: Profile</h4>
+        <p class="muted">Set your baseline profile for personalized coaching and calorie guidance.</p>
+        <label for="onboarding-age">Age</label>
+        <input id="onboarding-age" type="number" min="10" max="120" />
+
+        <label for="onboarding-gender" class="label-top">Gender</label>
+        <select id="onboarding-gender">
+          <option value="">Select...</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="nonbinary">Nonbinary</option>
+          <option value="prefer_not_to_say">Prefer not to say</option>
+        </select>
+
+        <label for="onboarding-activity" class="label-top">Activity Level</label>
+        <select id="onboarding-activity">
+          <option value="">Select...</option>
+          <option value="sedentary">Sedentary</option>
+          <option value="light">Lightly active</option>
+          <option value="moderate">Moderately active</option>
+          <option value="active">Active</option>
+          <option value="very_active">Very active</option>
+        </select>
+      </div>
+
+      <div class="onboarding-step hidden" data-step="1">
+        <h4>Step 2: Choose goals to track</h4>
+        <div class="grid">
+          <label><input id="onboarding-goal-calories" type="checkbox" checked /> <span data-goal-label="calories">Calories In</span></label>
+          <label><input id="onboarding-goal-sleepHours" type="checkbox" checked /> <span data-goal-label="sleepHours">Sleep Hours</span></label>
+          <label><input id="onboarding-goal-mood" type="checkbox" checked /> <span data-goal-label="mood">Mood</span></label>
+          <label><input id="onboarding-goal-steps" type="checkbox" checked /> <span data-goal-label="steps">Steps</span></label>
+          <label><input id="onboarding-goal-exerciseMinutes" type="checkbox" checked /> <span data-goal-label="exerciseMinutes">Exercise Minutes</span></label>
+          <label><input id="onboarding-goal-exerciseEffort" type="checkbox" checked /> <span data-goal-label="exerciseEffort">Exercise Effort</span></label>
+        </div>
+      </div>
+
+      <div class="onboarding-step hidden" data-step="2">
+        <h4>Step 3: Units & app preferences</h4>
+        <label for="onboarding-height-unit">Height Units</label>
+        <select id="onboarding-height-unit">
+          <option value="cm">Centimeters (cm)</option>
+          <option value="ft_in">Feet + Inches (ft/in)</option>
+        </select>
+
+        <label for="onboarding-weight-unit" class="label-top">Weight Units</label>
+        <select id="onboarding-weight-unit">
+          <option value="kg">Kilograms (kg)</option>
+          <option value="lb">Pounds (lb)</option>
+          <option value="st_lb">Stone + Pounds (st/lb)</option>
+        </select>
+
+        <label for="onboarding-height-primary" class="label-top">Height</label>
+        <input id="onboarding-height-primary" type="number" min="0" step="0.1" />
+        <label for="onboarding-height-secondary" class="label-top">Height Secondary (inches for ft/in)</label>
+        <input id="onboarding-height-secondary" type="number" min="0" max="11" step="1" />
+
+        <label for="onboarding-weight-primary" class="label-top">Weight</label>
+        <input id="onboarding-weight-primary" type="number" min="0" step="0.1" />
+        <label for="onboarding-weight-secondary" class="label-top">Weight Secondary (pounds for st/lb)</label>
+        <input id="onboarding-weight-secondary" type="number" min="0" max="13" step="1" />
+
+        <label class="label-top"><input id="onboarding-setting-compact" type="checkbox" /> Compact dashboard cards</label>
+        <label class="label-top"><input id="onboarding-setting-animations" type="checkbox" checked /> Enable recap animations</label>
+        <label class="label-top"><input id="onboarding-setting-showtips" type="checkbox" checked /> Show dashboard guidance tips</label>
+      </div>
+
+      <div id="onboarding-message"></div>
+      <div class="modal-actions spacer-top">
+        <button id="onboarding-prev" class="ghost hidden" type="button">Back</button>
+        <button id="onboarding-next" class="primary" type="button">Next</button>
+        <button id="onboarding-complete" class="primary hidden" type="button">Finish Setup</button>
       </div>
     </div>
   </div>
