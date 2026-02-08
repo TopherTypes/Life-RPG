@@ -458,6 +458,94 @@ function buildDynamicTdeeSummary(state) {
 }
 
 /**
+ * Maps dashboard signal quality into compact, color-coded status tags.
+ *
+ * Tag vocabulary intentionally stays minimal (`good`, `watch`, `needs-input`)
+ * so users can parse card health quickly without reading full diagnostics text.
+ */
+function buildMetricStatusCue(metricKey, analysis) {
+  if (!analysis || analysis.emptyState?.isEmpty) {
+    return {
+      status: "needs-input",
+      hint: "Needs input to unlock a stable trend.",
+    };
+  }
+
+  const latest = Number(analysis.aggregates?.latest);
+  const average = Number(analysis.aggregates?.average);
+  const hasComparableValues = Number.isFinite(latest) && Number.isFinite(average);
+
+  if (!hasComparableValues) {
+    return {
+      status: "watch",
+      hint: "Partial data logged; trend confidence is limited.",
+    };
+  }
+
+  const delta = latest - average;
+  const percentageDelta = average === 0 ? 0 : Math.abs(delta / average);
+  const meta = DAILY_ANALYTICS_META[metricKey] || {};
+  const direction = meta.direction || "higher-is-better";
+
+  // A narrow delta band means users are operating close to their own baseline,
+  // which is usually the fastest interpretation cue for dashboard overviews.
+  if (percentageDelta <= 0.1) {
+    return {
+      status: "good",
+      hint: "Within your 7-day target range.",
+    };
+  }
+
+  // Direction-aware wording avoids mislabeling metrics where lower values are desirable.
+  const isMovingInPreferredDirection = direction === "lower-is-better" ? delta < 0 : delta > 0;
+  if (isMovingInPreferredDirection) {
+    return {
+      status: "good",
+      hint: "Trending favorably vs 7-day average.",
+    };
+  }
+
+  return {
+    status: "watch",
+    hint: "Down vs 7-day average; monitor next logs.",
+  };
+}
+
+/**
+ * Creates behavior-specific status cues from the centralized behavior analyzer.
+ */
+function buildBehaviorStatusCue(analysis) {
+  if (!analysis || analysis.emptyState?.isEmpty) {
+    return {
+      status: "needs-input",
+      hint: "Needs more recent logs for behavior scoring.",
+    };
+  }
+
+  const penaltyRate = Number(analysis.aggregates?.penaltyRate || 0);
+  const recoveryRate = Number(analysis.aggregates?.recoveryRate || 0);
+
+  if (penaltyRate <= 0.2 && recoveryRate >= 0.15) {
+    return {
+      status: "good",
+      hint: "Within target range with active recovery momentum.",
+    };
+  }
+
+  if (penaltyRate <= 0.35) {
+    return {
+      status: "watch",
+      hint: "Stable but watch consistency to prevent penalty creep.",
+    };
+  }
+
+  return {
+    status: "watch",
+    hint: "Needs attention: penalty load is elevated.",
+  };
+}
+
+/**
  * Renders the dashboard aggregate and 7-day trend summary views.
  */
 export function renderDashboard(state) {
@@ -554,17 +642,68 @@ export function renderDashboard(state) {
   // optional extended diagnostics so overview remains decision-focused.
   const metricCardGroups = {
     default: [
-      { target: "daily:mood", title: "7-Day Avg Mood", metric: "mood" },
-      { target: "daily:sleepHours", title: "7-Day Avg Sleep (hrs)", metric: "sleepHours" },
-      { target: "behavior", title: "Behavior Health", value: `${Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100)}%` },
+      {
+        target: "daily:mood",
+        title: "7-Day Avg Mood",
+        metric: "mood",
+        cue: buildMetricStatusCue("mood", metricAnalyses.mood),
+      },
+      {
+        target: "daily:sleepHours",
+        title: "7-Day Avg Sleep (hrs)",
+        metric: "sleepHours",
+        cue: buildMetricStatusCue("sleepHours", metricAnalyses.sleepHours),
+      },
+      {
+        target: "behavior",
+        title: "Behavior Health",
+        value: `${Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100)}%`,
+        cue: buildBehaviorStatusCue(behaviorAnalysis),
+      },
     ],
     extended: [
-      { target: "daily:steps", title: "7-Day Avg Steps", metric: "steps" },
-      { target: "daily:exerciseMinutes", title: "7-Day Avg Exercise Min", metric: "exerciseMinutes" },
-      { target: "daily:exerciseEffort", title: "7-Day Avg Exercise Effort", metric: "exerciseEffort" },
-      { target: "daily:calories", title: "7-Day Avg Calories", metric: "calories" },
-      { target: "quests", title: "Quest Acceptance", value: `${Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)}%` },
-      { target: "reviews", title: "Saved Reviews", value: String(reviewsAnalysis.aggregates.totalCount || 0) },
+      {
+        target: "daily:steps",
+        title: "7-Day Avg Steps",
+        metric: "steps",
+        cue: buildMetricStatusCue("steps", metricAnalyses.steps),
+      },
+      {
+        target: "daily:exerciseMinutes",
+        title: "7-Day Avg Exercise Min",
+        metric: "exerciseMinutes",
+        cue: buildMetricStatusCue("exerciseMinutes", metricAnalyses.exerciseMinutes),
+      },
+      {
+        target: "daily:exerciseEffort",
+        title: "7-Day Avg Exercise Effort",
+        metric: "exerciseEffort",
+        cue: buildMetricStatusCue("exerciseEffort", metricAnalyses.exerciseEffort),
+      },
+      {
+        target: "daily:calories",
+        title: "7-Day Avg Calories",
+        metric: "calories",
+        cue: buildMetricStatusCue("calories", metricAnalyses.calories),
+      },
+      {
+        target: "quests",
+        title: "Quest Acceptance",
+        value: `${Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)}%`,
+        cue: {
+          status: questsAnalysis.emptyState?.isEmpty ? "needs-input" : "good",
+          hint: questsAnalysis.emptyState?.isEmpty ? "Needs quest selections to benchmark." : "Within target range for active quests.",
+        },
+      },
+      {
+        target: "reviews",
+        title: "Saved Reviews",
+        value: String(reviewsAnalysis.aggregates.totalCount || 0),
+        cue: {
+          status: reviewsAnalysis.aggregates.totalCount > 0 ? "good" : "needs-input",
+          hint: reviewsAnalysis.aggregates.totalCount > 0 ? "Reflection habit is active." : "Needs input: save a weekly or monthly review.",
+        },
+      },
     ],
   };
 
@@ -573,9 +712,10 @@ export function renderDashboard(state) {
       const value = card.metric ? formatMetricAverage(card.metric) : card.value;
       const intentLabel = card.metric ? "View trend" : "View analysis";
       const cardAriaLabel = `${intentLabel} for ${card.title}`;
+      const cue = card.cue || { status: "needs-input", hint: "Needs input for interpretation." };
 
       // Card metadata keeps visible cue text and assistive labels in sync.
-      return `<button class="card card--drilldown dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="${cardAriaLabel}"><strong>${card.title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div><span class="card-intent-badge">${intentLabel}</span></button>`;
+      return `<button class="card card--drilldown dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="${cardAriaLabel}"><strong>${card.title}</strong><div class="metric">${value}</div><div class="dashboard-card-cue"><span class="status-tag status-tag--${cue.status}">${cue.status}</span><span class="status-hint">${cue.hint}</span></div><div class="muted">Tap for detail view</div><span class="card-intent-badge">${intentLabel}</span></button>`;
     })
     .join("");
 
