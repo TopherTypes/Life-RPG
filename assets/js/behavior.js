@@ -1,4 +1,5 @@
 import { BEHAVIOR_CONFIG } from "./constants.js";
+import { computeHealthyCalorieRange, isProfileComplete } from "./profile-metrics.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -6,13 +7,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Evaluates first-pass behavior mechanics from stored daily entries.
  *
  * @param {string[]} orderedDateKeys - Sorted YYYY-MM-DD keys from persisted entries.
+ * @param {Record<string, object>} entriesMap - Full entries keyed by date.
+ * @param {object} profile - Optional profile for personalized calorie adherence.
  * @param {Date} [referenceDate=new Date()] - Clock anchor used for rest-day eligibility messaging.
  * @returns {{
  *   totalMissedDays: number,
+ *   missedDayPenaltyRate: number,
+ *   caloriePenaltyRate: number,
  *   penaltyRate: number,
  *   recoveryRate: number,
+ *   calorieRecoveryRate: number,
  *   currentStreak: number,
  *   comebackStreak: number,
+ *   calorieAdherence: {
+ *     evaluatedDays: number,
+ *     deviationDays: number,
+ *     inRangeStreak: number,
+ *     rangeMin: number | null,
+ *     rangeMax: number | null,
+ *     enabled: boolean,
+ *   },
  *   restDay: {
  *     eligible: boolean,
  *     remainingThisWindow: number,
@@ -20,14 +34,25 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *   }
  * }}
  */
-export function evaluateBehaviorMechanics(orderedDateKeys, referenceDate = new Date()) {
+export function evaluateBehaviorMechanics(orderedDateKeys, entriesMap = {}, profile = {}, referenceDate = new Date()) {
   if (!orderedDateKeys.length) {
     return {
       totalMissedDays: 0,
+      missedDayPenaltyRate: 0,
+      caloriePenaltyRate: 0,
       penaltyRate: 0,
       recoveryRate: 0,
+      calorieRecoveryRate: 0,
       currentStreak: 0,
       comebackStreak: 0,
+      calorieAdherence: {
+        evaluatedDays: 0,
+        deviationDays: 0,
+        inRangeStreak: 0,
+        rangeMin: null,
+        rangeMax: null,
+        enabled: false,
+      },
       restDay: {
         eligible: false,
         remainingThisWindow: BEHAVIOR_CONFIG.REST_DAY_MAX_USES_PER_WINDOW,
@@ -40,27 +65,110 @@ export function evaluateBehaviorMechanics(orderedDateKeys, referenceDate = new D
   const currentStreak = countCurrentStreak(orderedDateKeys);
   const comebackStreak = countComebackStreak(orderedDateKeys);
 
-  const penaltyRate = Math.min(
+  const missedDayPenaltyRate = Math.min(
     totalMissedDays * BEHAVIOR_CONFIG.SOFT_PENALTY_PER_MISSED_DAY,
     BEHAVIOR_CONFIG.SOFT_PENALTY_MAX_RATE
   );
 
-  const recoveryRate = comebackStreak >= BEHAVIOR_CONFIG.RECOVERY_TRIGGER_STREAK
+  const calorieEffect = evaluateCalorieAdherencePenalty(orderedDateKeys, entriesMap, profile);
+  const caloriePenaltyRate = calorieEffect.caloriePenaltyRate;
+  const calorieRecoveryRate = calorieEffect.calorieRecoveryRate;
+
+  const penaltyRate = Math.min(
+    BEHAVIOR_CONFIG.TOTAL_PENALTY_MAX_RATE,
+    missedDayPenaltyRate + caloriePenaltyRate
+  );
+
+  const streakRecoveryRate = comebackStreak >= BEHAVIOR_CONFIG.RECOVERY_TRIGGER_STREAK
     ? Math.min(
       (comebackStreak - BEHAVIOR_CONFIG.RECOVERY_TRIGGER_STREAK + 1) * BEHAVIOR_CONFIG.RECOVERY_STEP_RATE,
       BEHAVIOR_CONFIG.RECOVERY_MAX_RATE
     )
     : 0;
 
+  const recoveryRate = Math.min(
+    BEHAVIOR_CONFIG.RECOVERY_MAX_RATE + BEHAVIOR_CONFIG.CALORIE_RECOVERY_MAX_RATE,
+    streakRecoveryRate + calorieRecoveryRate
+  );
+
   const restDay = evaluateRestDayEligibility(orderedDateKeys, currentStreak, referenceDate);
 
   return {
     totalMissedDays,
+    missedDayPenaltyRate,
+    caloriePenaltyRate,
     penaltyRate,
     recoveryRate,
+    calorieRecoveryRate,
     currentStreak,
     comebackStreak,
+    calorieAdherence: calorieEffect.calorieAdherence,
     restDay,
+  };
+}
+
+/**
+ * Deterministically evaluates calorie adherence from recent entries.
+ */
+export function evaluateCalorieAdherencePenalty(orderedDateKeys, entriesMap = {}, profile = {}) {
+  const healthyRange = isProfileComplete(profile) ? computeHealthyCalorieRange(profile, "maintain") : null;
+  if (!healthyRange) {
+    return {
+      caloriePenaltyRate: 0,
+      calorieRecoveryRate: 0,
+      calorieAdherence: {
+        evaluatedDays: 0,
+        deviationDays: 0,
+        inRangeStreak: 0,
+        rangeMin: null,
+        rangeMax: null,
+        enabled: false,
+      },
+    };
+  }
+
+  const lookbackDays = BEHAVIOR_CONFIG.CALORIE_LOOKBACK_DAYS;
+  const recentDateKeys = orderedDateKeys.slice(-lookbackDays);
+
+  let evaluatedDays = 0;
+  let deviationDays = 0;
+
+  recentDateKeys.forEach((dateKey) => {
+    const calories = entriesMap[dateKey]?.calories;
+    if (!Number.isFinite(calories)) return;
+
+    evaluatedDays += 1;
+    if (calories < healthyRange.min || calories > healthyRange.max) {
+      deviationDays += 1;
+    }
+  });
+
+  const inRangeStreak = countTrailingInRangeStreak(recentDateKeys, entriesMap, healthyRange);
+
+  const caloriePenaltyRate = Math.min(
+    deviationDays * BEHAVIOR_CONFIG.CALORIE_PENALTY_PER_DEVIATION_DAY,
+    BEHAVIOR_CONFIG.CALORIE_PENALTY_MAX_RATE
+  );
+
+  const calorieRecoveryRate = inRangeStreak >= BEHAVIOR_CONFIG.CALORIE_RECOVERY_TRIGGER_STREAK
+    ? Math.min(
+      (inRangeStreak - BEHAVIOR_CONFIG.CALORIE_RECOVERY_TRIGGER_STREAK + 1)
+        * BEHAVIOR_CONFIG.CALORIE_RECOVERY_STEP_RATE,
+      BEHAVIOR_CONFIG.CALORIE_RECOVERY_MAX_RATE
+    )
+    : 0;
+
+  return {
+    caloriePenaltyRate,
+    calorieRecoveryRate,
+    calorieAdherence: {
+      evaluatedDays,
+      deviationDays,
+      inRangeStreak,
+      rangeMin: healthyRange.min,
+      rangeMax: healthyRange.max,
+      enabled: true,
+    },
   };
 }
 
@@ -131,6 +239,23 @@ function countComebackStreak(orderedDateKeys) {
 
     // The first gap >1 marks the break; everything after that gap is the comeback run.
     break;
+  }
+  return streak;
+}
+
+/**
+ * Counts trailing streak of in-range calories in recent logs.
+ */
+function countTrailingInRangeStreak(recentDateKeys, entriesMap, healthyRange) {
+  let streak = 0;
+  for (let index = recentDateKeys.length - 1; index >= 0; index -= 1) {
+    const calories = entriesMap[recentDateKeys[index]]?.calories;
+
+    // Missing calorie data breaks adherence streak; this avoids over-crediting sparse logs.
+    if (!Number.isFinite(calories)) break;
+    if (calories < healthyRange.min || calories > healthyRange.max) break;
+
+    streak += 1;
   }
   return streak;
 }

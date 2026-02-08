@@ -1,4 +1,5 @@
-import { DAILY_FIELDS } from "./constants.js";
+import { CALORIE_STATIC_OUTLIER, DAILY_FIELDS } from "./constants.js";
+import { computeHealthyCalorieRange, isProfileComplete } from "./profile-metrics.js";
 
 /**
  * Determines whether a dated entry remains editable.
@@ -13,7 +14,7 @@ export function isEditable(dateISO) {
 /**
  * Hard validations block submit; soft validations produce warnings and anomaly flags.
  */
-export function validateEntry(entry) {
+export function validateEntry(entry, profile = null) {
   const hardErrors = [];
   const softWarnings = [];
   const anomalies = [];
@@ -58,10 +59,28 @@ export function validateEntry(entry) {
 
   if (entry.sleepHours !== null && entry.sleepHours > 14) anomalies.push("Sleep > 14h");
   if (entry.steps !== null && entry.steps > 60000) anomalies.push("Steps > 60,000");
-  if (entry.calories !== null && entry.calories > 8000) anomalies.push("Calories > 8,000");
   if (entry.exerciseMinutes !== null && entry.exerciseMinutes > 240) anomalies.push("Exercise > 240 minutes");
 
-  if (anomalies.length) {
+  if (entry.calories !== null) {
+    const hasCompleteProfile = isProfileComplete(profile || {});
+
+    // Personalized soft warning: compare to profile-based healthy TDEE band when available.
+    if (hasCompleteProfile) {
+      const healthyRange = computeHealthyCalorieRange(profile, "maintain");
+      if (healthyRange && (entry.calories < healthyRange.min || entry.calories > healthyRange.max)) {
+        anomalies.push(`Calories outside personalized range (${healthyRange.min}-${healthyRange.max})`);
+        softWarnings.push(
+          `Calories (${entry.calories}) are outside your personalized maintenance range `
+          + `(${healthyRange.min}-${healthyRange.max} kcal). This is only a soft warning.`
+        );
+      }
+    } else if (entry.calories > CALORIE_STATIC_OUTLIER.max || entry.calories < CALORIE_STATIC_OUTLIER.min) {
+      // Fallback for incomplete profiles keeps legacy behavior available.
+      anomalies.push(`Calories outside static outlier range (${CALORIE_STATIC_OUTLIER.min}-${CALORIE_STATIC_OUTLIER.max})`);
+    }
+  }
+
+  if (anomalies.length && !softWarnings.length) {
     softWarnings.push(`Anomalies detected: ${anomalies.join(", ")}. Value included but flagged.`);
   }
 

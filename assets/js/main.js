@@ -9,6 +9,7 @@ import {
 } from "./analytics.js";
 import { todayISO } from "./utils.js";
 import { isEditable, validateEntry } from "./validation.js";
+import { computeTdee } from "./profile-metrics.js";
 import {
   setupTabs,
   hydrateFormForDate,
@@ -170,7 +171,7 @@ function onEntrySubmit(event) {
     return;
   }
 
-  const validation = validateEntry(entry);
+  const validation = validateEntry(entry, state.profile);
   if (validation.hardErrors.length) {
     showEntryFieldErrors(validation.fieldErrors);
     showMessages("entry-messages", validation.hardErrors, "bad");
@@ -424,22 +425,8 @@ function saveProfile() {
 
   clearProfileFieldErrors();
 
-  // Use Mifflin-St Jeor + activity multipliers to estimate daily energy expenditure.
-  // This keeps calorie feedback individualized instead of relying on one-size-fits-all assumptions.
-  const activityMultipliers = {
-    sedentary: 1.2,
-    light: 1.375,
-    moderate: 1.55,
-    active: 1.725,
-    very_active: 1.9,
-  };
-
-  let tdee = null;
-  if (hasTdeeInputs) {
-    const genderConstant = profile.gender === "female" ? -161 : 5;
-    const bmr = (10 * profile.weightKg) + (6.25 * profile.heightCm) - (5 * profile.age) + genderConstant;
-    tdee = Math.round(bmr * activityMultipliers[profile.activityLevel]);
-  }
+  // Centralized metric utility keeps TDEE calculations deterministic across modules.
+  const tdee = hasTdeeInputs ? computeTdee(profile) : null;
 
   state.profile = {
     ...state.profile,
