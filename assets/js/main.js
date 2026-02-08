@@ -228,16 +228,51 @@ function preloadReviewForEdit(type, period) {
     return;
   }
 
+  // Normalize persisted review data so edit prefill works across both schemas:
+  // 1) New structured prompt fields (`wins`, `blockers`, `nextAction`, `confidence`).
+  // 2) Legacy records that only stored a single `text` blob.
+  const legacyText = typeof review.text === "string" ? review.text.trim() : "";
+  const structuredFields = {
+    wins: typeof review.wins === "string" ? review.wins.trim() : "",
+    blockers: typeof review.blockers === "string" ? review.blockers.trim() : "",
+    nextAction: typeof review.nextAction === "string" ? review.nextAction.trim() : "",
+    confidence: typeof review.confidence === "string" ? review.confidence.trim() : "",
+  };
+
+  // Legacy migration fallback: if structured fields are empty but `text` exists,
+  // seed it into `wins` so users can split it into prompt fields before saving.
+  const hasStructuredValue = Object.values(structuredFields).some(Boolean);
+  if (!hasStructuredValue && legacyText) {
+    structuredFields.wins = legacyText;
+  }
+
   if (type === "weekly") {
     document.getElementById("weekly-period").value = period;
-    document.getElementById("weekly-review").value = review.text;
+    document.getElementById("weekly-wins").value = structuredFields.wins;
+    document.getElementById("weekly-blockers").value = structuredFields.blockers;
+    document.getElementById("weekly-next-action").value = structuredFields.nextAction;
+    document.getElementById("weekly-confidence").value = structuredFields.confidence;
   } else {
     document.getElementById("monthly-period").value = period;
-    document.getElementById("monthly-review").value = review.text;
+    document.getElementById("monthly-wins").value = structuredFields.wins;
+    document.getElementById("monthly-blockers").value = structuredFields.blockers;
+    document.getElementById("monthly-next-action").value = structuredFields.nextAction;
+    document.getElementById("monthly-confidence").value = structuredFields.confidence;
   }
 
   renderReviewsList(state);
-  showMessages("reviews-message", [`Loaded ${type} review for ${period}. Update text and click Save.`], "good");
+  const migrationHint =
+    !hasStructuredValue && legacyText
+      ? " Legacy note detected: it was placed in Wins—split it across Blockers, Next Action, and Confidence before saving."
+      : "";
+
+  showMessages(
+    "reviews-message",
+    [
+      `Loaded ${type} review for ${period}. Update the structured prompts (Wins, Blockers, Next Action, Confidence) and click Save.${migrationHint}`,
+    ],
+    "good"
+  );
 }
 
 /**
