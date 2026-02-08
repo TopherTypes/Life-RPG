@@ -270,7 +270,7 @@ export function renderRecap(entry, state) {
   const attributeCards = Object.entries(progression.attributeXp)
     .map(([attribute, xp]) => {
       const levelInfo = levelFromXp(xp);
-      return `<div class="card"><strong>${attribute}</strong><div class="metric">L${levelInfo.level}</div><div>${levelInfo.inLevelXp}/${levelInfo.next} XP</div></div>`;
+      return `<div class="card card--summary"><strong>${attribute}</strong><div class="metric">L${levelInfo.level}</div><div>${levelInfo.inLevelXp}/${levelInfo.next} XP</div></div>`;
     })
     .join("");
 
@@ -520,7 +520,7 @@ export function renderDashboard(state) {
   const attributeCards = Object.entries(progression.attributeXp)
     .map(([attribute, xp]) => {
       const levelInfo = levelFromXp(xp);
-      return `<div class="card"><strong>${attribute}</strong><div class="metric">L${levelInfo.level}</div><div>${levelInfo.inLevelXp}/${levelInfo.next} XP to next level</div></div>`;
+      return `<div class="card card--summary"><strong>${attribute}</strong><div class="metric">L${levelInfo.level}</div><div>${levelInfo.inLevelXp}/${levelInfo.next} XP to next level</div></div>`;
     })
     .join("");
 
@@ -538,7 +538,7 @@ export function renderDashboard(state) {
   const questHighlights = Object.entries(QUESTS)
     .map(([key, quest]) => {
       const data = progression.quests[key];
-      return `<div class="card"><strong>${quest.label}</strong><div class="metric">${data.current}/${data.target}</div><div class="muted">${data.accepted ? "Tracking active" : "Accept in Quest Log"}</div></div>`;
+      return `<div class="card card--summary"><strong>${quest.label}</strong><div class="metric">${data.current}/${data.target}</div><div class="muted">${data.accepted ? "Tracking active" : "Accept in Quest Log"}</div></div>`;
     })
     .join("");
 
@@ -559,7 +559,11 @@ export function renderDashboard(state) {
   ]
     .map((card) => {
       const value = card.metric ? formatMetricAverage(card.metric) : card.value;
-      return `<button class="card dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="Open ${card.title} details"><strong>${card.title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div></button>`;
+      const intentLabel = card.metric ? "View trend" : "View analysis";
+      const cardAriaLabel = `${intentLabel} for ${card.title}`;
+
+      // Card metadata keeps visible cue text and assistive labels in sync.
+      return `<button class="card card--drilldown dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="${cardAriaLabel}"><strong>${card.title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div><span class="card-intent-badge">${intentLabel}</span></button>`;
     })
     .join("");
 
@@ -570,10 +574,10 @@ export function renderDashboard(state) {
     <section class="dashboard-section" aria-label="Today's snapshot">
       <h3>Today’s Snapshot</h3>
       <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
-        <div class="card"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
-        <div class="card"><strong>Behavior Health</strong><div class="metric">${behaviorHealthPercent}%</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
-        <div class="card"><strong>Primary Trend: Mood</strong><div class="metric">${moodAverage}</div><div class="muted">${moodTrendLabel} • Latest ${latestMoodPoint ? `${latestMoodPoint.value}/10` : "—"}</div></div>
-        <div class="card"><strong>Action</strong><div class="metric">Log today</div><div class="muted">Capture today’s entry to protect streak momentum.</div><button type="button" class="primary" data-tab="daily">Open Daily Entry</button></div>
+        <div class="card card--summary"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
+        <div class="card card--summary"><strong>Behavior Health</strong><div class="metric">${behaviorHealthPercent}%</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
+        <div class="card card--summary"><strong>Primary Trend: Mood</strong><div class="metric">${moodAverage}</div><div class="muted">${moodTrendLabel} • Latest ${latestMoodPoint ? `${latestMoodPoint.value}/10` : "—"}</div></div>
+        <div class="card card--summary"><strong>Action</strong><div class="metric">Log today</div><div class="muted">Capture today’s entry to protect streak momentum.</div><button type="button" class="primary" data-tab="daily">Open Daily Entry</button></div>
       </div>
     </section>
 
@@ -586,9 +590,9 @@ export function renderDashboard(state) {
     <section class="dashboard-section" aria-label="Action center">
       <h3>Action Center</h3>
       <div class="cards ${state.settings.compactCards ? "compact" : ""}">
-        <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div><div class="muted">Total logged days: ${entries.length}</div></div>
-        <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
-        <div class="card"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Baseline: ${tdeeSummary.baselineTdee ?? "—"} kcal/day</div></div>
+        <div class="card card--summary"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div><div class="muted">Total logged days: ${entries.length}</div></div>
+        <div class="card card--summary"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+        <div class="card card--summary"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Baseline: ${tdeeSummary.baselineTdee ?? "—"} kcal/day</div></div>
       </div>
 
       <details class="dashboard-details">
@@ -604,10 +608,10 @@ export function renderDashboard(state) {
       <details class="dashboard-details">
         <summary>Show details: Behavior mechanics internals</summary>
         <div class="cards ${state.settings.compactCards ? "compact" : ""}">
-          <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
-          <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
-          <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
-          <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
+          <div class="card card--summary"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
+          <div class="card card--summary"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
+          <div class="card card--summary"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
+          <div class="card card--summary"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
         </div>
       </details>
 
@@ -697,10 +701,10 @@ export function renderDashboardDetail(state, targetKey) {
       <p class="muted">Unit: ${meta.unitLabel || "n/a"} • Last ${WINDOW_DAYS} days sample size: ${analysis.aggregates.sampleSize || 0}</p>
 
       <div class="cards dashboard-summary">
-        <div class="card"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.latest, meta.valueDecimals ?? 1)}</div></div>
-        <div class="card"><strong>${WINDOW_DAYS}-Day Average</strong><div class="metric">${analysis.emptyState.isEmpty ? formatValue(null) : formatMetricValue(analysis.aggregates.average, meta.averageDecimals ?? 1)}</div></div>
-        <div class="card"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.min, meta.valueDecimals ?? 1)}</div></div>
-        <div class="card"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.max, meta.valueDecimals ?? 1)}</div></div>
+        <div class="card card--summary"><strong>Latest Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.latest, meta.valueDecimals ?? 1)}</div></div>
+        <div class="card card--summary"><strong>${WINDOW_DAYS}-Day Average</strong><div class="metric">${analysis.emptyState.isEmpty ? formatValue(null) : formatMetricValue(analysis.aggregates.average, meta.averageDecimals ?? 1)}</div></div>
+        <div class="card card--summary"><strong>Minimum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.min, meta.valueDecimals ?? 1)}</div></div>
+        <div class="card card--summary"><strong>Maximum Logged</strong><div class="metric">${formatMetricValue(analysis.aggregates.max, meta.valueDecimals ?? 1)}</div></div>
       </div>
 
       <h4 class="spacer-top">${WINDOW_DAYS}-Day ${meta.label || metricKey} Trend</h4>
@@ -716,9 +720,9 @@ export function renderDashboardDetail(state, targetKey) {
       ${metricKey === "calories"
         ? `<h4 class="spacer-top">Adaptive Calorie Targets</h4>
       <div class="cards dashboard-summary">
-        <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary?.baselineTdee ?? "—"}</div><div class="muted">Profile equation anchor.</div></div>
-        <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary?.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary?.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
-        <div class="card"><strong>Delta vs Baseline</strong><div class="metric">${tdeeSummary?.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Guardrails: ±12% cap + smoothing.</div></div>
+        <div class="card card--summary"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary?.baselineTdee ?? "—"}</div><div class="muted">Profile equation anchor.</div></div>
+        <div class="card card--summary"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary?.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary?.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+        <div class="card card--summary"><strong>Delta vs Baseline</strong><div class="metric">${tdeeSummary?.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Guardrails: ±12% cap + smoothing.</div></div>
       </div>`
         : ""}
 
@@ -738,10 +742,10 @@ export function renderDashboardDetail(state, targetKey) {
       <h3>Behavior Mechanics Details</h3>
       <p class="muted">${analysis.emptyState.reason}</p>
       <div class="cards dashboard-summary">
-        <div class="card"><strong>Penalty Rate</strong><div class="metric">${formatPercent(analysis.aggregates.penaltyRate || 0)}</div></div>
-        <div class="card"><strong>Recovery Rate</strong><div class="metric">${formatPercent(analysis.aggregates.recoveryRate || 0)}</div></div>
-        <div class="card"><strong>Missed-Day Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.missedDayPenaltyRate || 0)}</div></div>
-        <div class="card"><strong>Calorie Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.caloriePenaltyRate || 0)}</div></div>
+        <div class="card card--summary"><strong>Penalty Rate</strong><div class="metric">${formatPercent(analysis.aggregates.penaltyRate || 0)}</div></div>
+        <div class="card card--summary"><strong>Recovery Rate</strong><div class="metric">${formatPercent(analysis.aggregates.recoveryRate || 0)}</div></div>
+        <div class="card card--summary"><strong>Missed-Day Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.missedDayPenaltyRate || 0)}</div></div>
+        <div class="card card--summary"><strong>Calorie Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.caloriePenaltyRate || 0)}</div></div>
       </div>
       <div class="msg good">${analysis.aggregates.restDayMessage || ""}</div>
     `;
@@ -758,8 +762,8 @@ export function renderDashboardDetail(state, targetKey) {
       <div class="row dashboard-detail-head"><button id="dashboard-detail-back" class="ghost" type="button">← Back to overview</button></div>
       <h3>Quest Progress Details</h3>
       <div class="cards dashboard-summary">
-        <div class="card"><strong>Accepted</strong><div class="metric">${analysis.aggregates.acceptedCount}/${analysis.aggregates.totalQuests}</div></div>
-        <div class="card"><strong>Completed</strong><div class="metric">${analysis.aggregates.completedCount}</div></div>
+        <div class="card card--summary"><strong>Accepted</strong><div class="metric">${analysis.aggregates.acceptedCount}/${analysis.aggregates.totalQuests}</div></div>
+        <div class="card card--summary"><strong>Completed</strong><div class="metric">${analysis.aggregates.completedCount}</div></div>
       </div>
       <table><thead><tr><th>Quest</th><th>Progress</th><th>Accepted</th></tr></thead><tbody>${questRows}</tbody></table>
     `;
@@ -772,10 +776,10 @@ export function renderDashboardDetail(state, targetKey) {
       <div class="row dashboard-detail-head"><button id="dashboard-detail-back" class="ghost" type="button">← Back to overview</button></div>
       <h3>Review Reflection Details</h3>
       <div class="cards dashboard-summary">
-        <div class="card"><strong>Total Reviews</strong><div class="metric">${analysis.aggregates.totalCount}</div></div>
-        <div class="card"><strong>Weekly</strong><div class="metric">${analysis.aggregates.weeklyCount}</div></div>
-        <div class="card"><strong>Monthly</strong><div class="metric">${analysis.aggregates.monthlyCount}</div></div>
-        <div class="card"><strong>Legacy Text Records</strong><div class="metric">${analysis.aggregates.legacyTextCount}</div></div>
+        <div class="card card--summary"><strong>Total Reviews</strong><div class="metric">${analysis.aggregates.totalCount}</div></div>
+        <div class="card card--summary"><strong>Weekly</strong><div class="metric">${analysis.aggregates.weeklyCount}</div></div>
+        <div class="card card--summary"><strong>Monthly</strong><div class="metric">${analysis.aggregates.monthlyCount}</div></div>
+        <div class="card card--summary"><strong>Legacy Text Records</strong><div class="metric">${analysis.aggregates.legacyTextCount}</div></div>
       </div>
       <p class="muted">Structured reviews: ${analysis.aggregates.structuredCount}. This includes defensive compatibility for legacy text-only records.</p>
     `;
@@ -795,7 +799,7 @@ export function renderQuestLog(state) {
     .map(([key, quest]) => {
       const progress = progression.quests[key];
       return `
-      <div class="card quest-card">
+      <div class="card card--summary quest-card">
         <h3>${quest.label}</h3>
         <p class="muted">Type: ${quest.type} • Target: ${quest.target}</p>
         <div class="metric">${progress.current}/${progress.target}</div>
@@ -896,7 +900,7 @@ export function renderReviewsList(state) {
 
   document.getElementById("reviews-list").innerHTML = `
     <div class="row">
-      <div class="card">
+      <div class="card card--summary">
         <h3>Weekly Reviews</h3>
         <ul>${weekly}</ul>
         <div class="row">
@@ -904,7 +908,7 @@ export function renderReviewsList(state) {
           ${weeklyShowLessVisible ? '<button type="button" class="ghost review-pagination-btn" data-review-action="weekly-less">Show less</button>' : ""}
         </div>
       </div>
-      <div class="card">
+      <div class="card card--summary">
         <h3>Monthly Reviews</h3>
         <ul>${monthly}</ul>
         <div class="row">
