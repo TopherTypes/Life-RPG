@@ -507,15 +507,19 @@ export function renderDashboard(state) {
     .map(([skill, xp]) => `<li>${skill}: ${xp} XP</li>`)
     .join("") || "<li>No data yet.</li>";
 
-  const tableRows = latest7
-    .map(
-      (entry) => `
-    <tr>
-      <td>${entry.date}</td><td>${formatValue(entry.calories)}</td><td>${formatValue(entry.sleepHours)}</td><td>${formatValue(entry.mood)}</td><td>${formatValue(entry.steps)}</td><td>${formatValue(entry.exerciseMinutes)}</td>
-    </tr>
-  `
-    )
-    .join("") || `<tr><td colspan="6">No entries yet.</td></tr>`;
+
+  // Compact recent-log digest keeps overview decision-focused while preserving
+  // key recency and quality signals without rendering a full data table.
+  const latestEntry = entries[entries.length - 1] || null;
+  const loggedDaysInWindow = latest7.length;
+  const latestEntryCompletionCount = latestEntry
+    ? [latestEntry.calories, latestEntry.sleepHours, latestEntry.mood, latestEntry.steps, latestEntry.exerciseMinutes]
+      .filter((value) => Number.isFinite(Number(value))).length
+    : 0;
+  const latestEntryCompletionLabel = latestEntry ? `${latestEntryCompletionCount}/5 metrics logged` : "No entry yet";
+  const notableChange = latestMoodPoint
+    ? `${moodTrendLabel} mood trend • Latest mood ${latestMoodPoint.value}/10`
+    : "Not enough mood data for a trend signal";
 
   const attributeCards = Object.entries(progression.attributeXp)
     .map(([attribute, xp]) => {
@@ -593,10 +597,10 @@ export function renderDashboard(state) {
       </div>
     </section>
 
-    <section class="dashboard-section" aria-label="Trend overview">
+    <section class="dashboard-section dashboard-section--compact" aria-label="Trend overview">
       <h3>Trend Focus</h3>
-      <p class="chart-legend muted">Legend: <span class="legend-chip legend-low" aria-hidden="true"></span> Filled bar = logged mood (including low values). <span class="legend-chip legend-missing" aria-hidden="true"></span> Hollow dotted bar = no data logged.</p>
-      <div class="chart-wrap">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
+      <p class="chart-legend muted">Mood (last 7): <span class="legend-chip legend-low" aria-hidden="true"></span> logged • <span class="legend-chip legend-missing" aria-hidden="true"></span> missing</p>
+      <div class="chart-wrap chart-wrap--compact">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
     </section>
 
     <section class="dashboard-section" aria-label="Action center">
@@ -660,12 +664,14 @@ export function renderDashboard(state) {
         ${extendedMetricCards}
       </div>
 
-      <details class="dashboard-details">
-        <summary>Show details: Recent entries (last 7)</summary>
-        <table>
-          <thead><tr><th>Date</th><th>Calories</th><th>Sleep</th><th>Mood</th><th>Steps</th><th>Exercise Min</th></tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
+      <details class="dashboard-details" open>
+        <summary>Recent logs summary</summary>
+        <div class="dashboard-recent-summary" role="status" aria-live="polite">
+          <span><strong>Latest date:</strong> ${latestEntry?.date ?? "—"}</span>
+          <span><strong>Completion:</strong> ${latestEntryCompletionLabel}</span>
+          <span><strong>Window:</strong> ${loggedDaysInWindow}/7 days logged</span>
+          <span><strong>Notable change:</strong> ${notableChange}</span>
+        </div>
       </details>
     </section>
   `;
@@ -684,6 +690,28 @@ export function renderDashboardDetail(state, targetKey) {
     if (value === null || value === undefined || !Number.isFinite(Number(value))) return formatValue(null);
     return Number(value).toFixed(decimals);
   };
+
+  // Shared recent-log table lives in detail views so the overview can stay
+  // compact while users still retain access to full day-level context.
+  const recentEntryRows = [...state.entries]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-7)
+    .reverse()
+    .map((entry) => `
+      <tr>
+        <td>${entry.date}</td><td>${formatValue(entry.calories)}</td><td>${formatValue(entry.sleepHours)}</td><td>${formatValue(entry.mood)}</td><td>${formatValue(entry.steps)}</td><td>${formatValue(entry.exerciseMinutes)}</td>
+      </tr>
+    `)
+    .join("") || `<tr><td colspan="6">No entries yet.</td></tr>`;
+
+  const recentLogsDetails = `
+      <details class="dashboard-details spacer-top">
+        <summary>Recent logs (last 7)</summary>
+        <table aria-label="Recent logs table">
+          <thead><tr><th>Date</th><th>Calories</th><th>Sleep</th><th>Mood</th><th>Steps</th><th>Exercise Min</th></tr></thead>
+          <tbody>${recentEntryRows}</tbody>
+        </table>
+      </details>`;
 
   if (targetKey && targetKey.startsWith("daily:")) {
     const metricKey = targetKey.split(":")[1];
@@ -763,6 +791,8 @@ export function renderDashboardDetail(state, targetKey) {
         <thead><tr><th>Date</th><th>${meta.label || metricKey}</th></tr></thead>
         <tbody>${recentRows}</tbody>
       </table>
+
+      ${recentLogsDetails}
     `;
     return;
   }
@@ -780,6 +810,7 @@ export function renderDashboardDetail(state, targetKey) {
         <div class="card card--summary"><strong>Calorie Penalty</strong><div class="metric">${formatPercent(analysis.aggregates.caloriePenaltyRate || 0)}</div></div>
       </div>
       <div class="msg good">${analysis.aggregates.restDayMessage || ""}</div>
+      ${recentLogsDetails}
     `;
     return;
   }
@@ -798,6 +829,7 @@ export function renderDashboardDetail(state, targetKey) {
         <div class="card card--summary"><strong>Completed</strong><div class="metric">${analysis.aggregates.completedCount}</div></div>
       </div>
       <table><thead><tr><th>Quest</th><th>Progress</th><th>Accepted</th></tr></thead><tbody>${questRows}</tbody></table>
+      ${recentLogsDetails}
     `;
     return;
   }
@@ -814,6 +846,7 @@ export function renderDashboardDetail(state, targetKey) {
         <div class="card card--summary"><strong>Legacy Text Records</strong><div class="metric">${analysis.aggregates.legacyTextCount}</div></div>
       </div>
       <p class="muted">Structured reviews: ${analysis.aggregates.structuredCount}. This includes defensive compatibility for legacy text-only records.</p>
+      ${recentLogsDetails}
     `;
     return;
   }
