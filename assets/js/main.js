@@ -16,7 +16,7 @@ import {
   readEntryFromForm,
   readProfileFromForm,
   renderDashboard,
-  renderMetricDetail,
+  renderDashboardDetail,
   renderRecap,
   renderReviewsList,
   showMessages,
@@ -795,10 +795,10 @@ function onTabSwitched({ tabId, triggerType }) {
  * Handles delegated dashboard interactions for metric drill-down navigation.
  */
 function onDashboardContentClick(event) {
-  const trigger = event.target.closest("[data-metric-key]");
+  const trigger = event.target.closest("[data-analysis-target]");
   if (trigger) {
-    const { metricKey } = trigger.dataset;
-    renderMetricDetail(state, metricKey);
+    const { analysisTarget } = trigger.dataset;
+    renderDashboardDetail(state, analysisTarget);
 
     const overview = document.getElementById("dashboard-overview-content");
     const detail = document.getElementById("dashboard-detail-content");

@@ -115,6 +115,32 @@ export const DAILY_FIELD_LABELS = {
 };
 
 /**
+ * Canonical metadata for daily analyzable metrics.
+ *
+ * This registry powers domain analytics and generic dashboard drill-down views.
+ * Keeping it centralized prevents label/unit drift between overview cards,
+ * detail views, and future analytics visualizations.
+ */
+export const DAILY_ANALYTICS_META = {
+  calories: { label: DAILY_FIELD_LABELS.calories, unitLabel: "kcal", averageDecimals: 0, valueDecimals: 0 },
+  sleepHours: { label: DAILY_FIELD_LABELS.sleepHours, unitLabel: "hours", averageDecimals: 1, valueDecimals: 1 },
+  mood: { label: DAILY_FIELD_LABELS.mood, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
+  steps: { label: DAILY_FIELD_LABELS.steps, unitLabel: "steps", averageDecimals: 0, valueDecimals: 0 },
+  exerciseMinutes: { label: DAILY_FIELD_LABELS.exerciseMinutes, unitLabel: "minutes", averageDecimals: 0, valueDecimals: 0 },
+  exerciseEffort: { label: DAILY_FIELD_LABELS.exerciseEffort, unitLabel: "/10", averageDecimals: 1, valueDecimals: 0 },
+};
+
+/**
+ * Area-level analytics metadata used by the shared domain aggregation layer.
+ */
+export const ANALYTICS_AREA_META = {
+  daily: { label: "Daily Metrics", unitLabel: "" },
+  behavior: { label: "Behavior Mechanics", unitLabel: "rate" },
+  quests: { label: "Quest Progress", unitLabel: "quests" },
+  reviews: { label: "Review Reflections", unitLabel: "reviews" },
+};
+
+/**
  * Supported profile unit preferences per account.
  */
 export const UNIT_OPTIONS = {
