@@ -199,8 +199,6 @@ function onEntrySubmit(event) {
  */
 function saveWeeklyReview() {
   const period = document.getElementById("weekly-period").value;
-  // Treat the selected date as the canonical weekly key until a dedicated Monday-normalization helper is introduced.
-  const normalizedPeriod = period;
 
   // Capture each prompt independently so the review can be rendered as a compact summary later.
   const prompts = {
@@ -220,8 +218,8 @@ function saveWeeklyReview() {
     return;
   }
 
+  // Use a single normalized key to avoid accidental duplicate records caused by timezone/browser parsing differences.
   const normalizedPeriod = formatLocalDateISO(new Date(period));
-  const hadExisting = Boolean(state.reviews.weekly[normalizedPeriod]);
   state.reviews.weekly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", [`Weekly review saved for ${normalizedPeriod}.`], "good");
@@ -233,8 +231,6 @@ function saveWeeklyReview() {
  */
 function saveMonthlyReview() {
   const period = document.getElementById("monthly-period").value;
-  // Preserve the selected date as-is; month start normalization is not currently applied in save flow.
-  const normalizedPeriod = period;
 
   // Keep prompt schema aligned with weekly review for predictable rendering logic.
   const prompts = {
@@ -253,8 +249,8 @@ function saveMonthlyReview() {
     return;
   }
 
+  // Normalize persisted key format so monthly review lookups are consistent across all browsers.
   const normalizedPeriod = formatLocalDateISO(new Date(period));
-  const hadExisting = Boolean(state.reviews.monthly[normalizedPeriod]);
   state.reviews.monthly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", [`Monthly review saved for ${normalizedPeriod}.`], "good");
