@@ -1,4 +1,12 @@
 import { loadState, persistState, getDefaultState } from "./storage.js";
+import { QUESTS } from "./constants.js";
+import {
+  ANALYTICS_EVENTS,
+  clearTrackedEvents,
+  exportTrackedEventsJson,
+  registerAnalyticsDebugApi,
+  track,
+} from "./analytics.js";
 import { todayISO } from "./utils.js";
 import { isEditable, validateEntry } from "./validation.js";
 import {
@@ -32,11 +40,13 @@ function formatLocalDateISO(date) {
  * Initializes app startup defaults and wires all UI handlers.
  */
 function init() {
-  setupTabs();
+  setupTabs(onTabSwitched);
   setupRecapModalControls();
   initializeFormDefaults();
   bindEvents();
   hydrateSettings(state);
+  registerAnalyticsDebugApi();
+  refreshAnalyticsDiagnostics();
   refreshAllViews();
 }
 
@@ -69,6 +79,14 @@ function bindEvents() {
     const questId = button.dataset.questId;
     state.acceptedQuests[questId] = true;
     persistState(state);
+
+
+    // Event intent: funnel step showing quest opt-in engagement.
+    track(ANALYTICS_EVENTS.QUEST_ACCEPTED, {
+      questId,
+      questLabel: QUESTS[questId]?.label || "unknown",
+    });
+
     refreshAllViews();
     showMessages("entry-messages", ["Quest accepted and now tracking progress."], "good");
   });
@@ -77,6 +95,11 @@ function bindEvents() {
   document.getElementById("setting-animations").addEventListener("change", onSettingsChange);
   document.getElementById("setting-showtips").addEventListener("change", onSettingsChange);
   document.getElementById("reset-account").addEventListener("click", resetAccount);
+
+  // Diagnostics controls support manual QA of local-only analytics signals.
+  document.getElementById("analytics-refresh").addEventListener("click", refreshAnalyticsDiagnostics);
+  document.getElementById("analytics-copy").addEventListener("click", copyAnalyticsDiagnostics);
+  document.getElementById("analytics-clear").addEventListener("click", clearAnalyticsDiagnostics);
 }
 
 /**
@@ -103,6 +126,14 @@ function onEntrySubmit(event) {
   if (!entry.date) {
     showEntryFieldErrors({ "entry-date": ["Date is required."] });
     showMessages("entry-messages", ["Date is required."], "bad");
+
+    // Event intent: detect drop-off caused by missing required date context.
+    track(ANALYTICS_EVENTS.DAILY_SUBMIT_FAIL, {
+      date: null,
+      category: "missing_date",
+      hardErrorCount: 1,
+      fieldIds: ["entry-date"],
+    });
     return;
   }
 
@@ -110,6 +141,14 @@ function onEntrySubmit(event) {
   if (existing && !isEditable(entry.date)) {
     showEntryFieldErrors({ "entry-date": ["This entry is read-only for edits."] });
     showMessages("entry-messages", ["This entry is read-only. Edit window (24h after day end) has expired."], "bad");
+
+    // Event intent: monitor policy-related submit failures.
+    track(ANALYTICS_EVENTS.DAILY_SUBMIT_FAIL, {
+      date: entry.date,
+      category: "read_only",
+      hardErrorCount: 1,
+      fieldIds: ["entry-date"],
+    });
     return;
   }
 
@@ -117,6 +156,14 @@ function onEntrySubmit(event) {
   if (validation.hardErrors.length) {
     showEntryFieldErrors(validation.fieldErrors);
     showMessages("entry-messages", validation.hardErrors, "bad");
+
+    // Event intent: categorize and count validation friction points.
+    track(ANALYTICS_EVENTS.DAILY_SUBMIT_FAIL, {
+      date: entry.date,
+      category: "hard_validation",
+      hardErrorCount: validation.hardErrors.length,
+      fieldIds: Object.keys(validation.fieldErrors || {}),
+    });
     return;
   }
 
@@ -130,6 +177,14 @@ function onEntrySubmit(event) {
   };
 
   persistState(state);
+
+  // Event intent: successful daily completion funnel checkpoint.
+  track(ANALYTICS_EVENTS.DAILY_SUBMIT_SUCCESS, {
+    date: entry.date,
+    isEdit: Boolean(existing),
+    hardErrorCount: 0,
+    anomalyCount: validation.anomalies.length,
+  });
 
   const messages = [existing ? "Entry updated." : "Entry saved."];
   if (validation.softWarnings.length) messages.push(...validation.softWarnings);
@@ -165,7 +220,9 @@ function saveWeeklyReview() {
     return;
   }
 
-  state.reviews.weekly[period] = { ...prompts, updatedAt: new Date().toISOString() };
+  const normalizedPeriod = formatLocalDateISO(new Date(period));
+  const hadExisting = Boolean(state.reviews.weekly[normalizedPeriod]);
+  state.reviews.weekly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", [`Weekly review saved for ${normalizedPeriod}.`], "good");
   renderReviewsList(state);
@@ -196,7 +253,9 @@ function saveMonthlyReview() {
     return;
   }
 
-  state.reviews.monthly[period] = { ...prompts, updatedAt: new Date().toISOString() };
+  const normalizedPeriod = formatLocalDateISO(new Date(period));
+  const hadExisting = Boolean(state.reviews.monthly[normalizedPeriod]);
+  state.reviews.monthly[normalizedPeriod] = { ...prompts, updatedAt: new Date().toISOString() };
   persistState(state);
   showMessages("reviews-message", [`Monthly review saved for ${normalizedPeriod}.`], "good");
   renderReviewsList(state);
@@ -264,6 +323,12 @@ function preloadReviewForEdit(type, period) {
     document.getElementById("monthly-confidence").value = structuredFields.confidence;
   }
 
+  // Event intent: measure edit intent rate before save.
+  track(ANALYTICS_EVENTS.REVIEW_EDITED, {
+    reviewType: type,
+    period,
+  });
+
   renderReviewsList(state);
   const migrationHint =
     !hasStructuredValue && legacyText
@@ -290,6 +355,12 @@ function deleteReview(type, period) {
 
   delete state.reviews[type][period];
   persistState(state);
+
+  // Event intent: detect churn/cleanup behavior in review history.
+  track(ANALYTICS_EVENTS.REVIEW_DELETED, {
+    reviewType: type,
+    period,
+  });
   renderReviewsList(state);
   showMessages("reviews-message", [`${type[0].toUpperCase() + type.slice(1)} review deleted for ${period}.`], "warn");
 }
@@ -333,8 +404,57 @@ function resetAccount() {
   });
   initializeFormDefaults();
   hydrateSettings(state);
+  registerAnalyticsDebugApi();
+  refreshAnalyticsDiagnostics();
   refreshAllViews();
   showMessages("settings-message", ["Account reset complete. You are back at a fresh start."], "warn");
+}
+
+
+
+/**
+ * Refreshes diagnostics textarea with current analytics JSON snapshot.
+ */
+function refreshAnalyticsDiagnostics() {
+  const output = document.getElementById("analytics-output");
+  if (!output) return;
+  output.value = exportTrackedEventsJson();
+}
+
+/**
+ * Copies analytics JSON to clipboard for easy manual QA sharing.
+ */
+async function copyAnalyticsDiagnostics() {
+  const payload = exportTrackedEventsJson();
+
+  // Clipboard API can fail in some contexts; keep graceful UI feedback.
+  try {
+    await navigator.clipboard.writeText(payload);
+    showMessages("settings-message", ["Analytics JSON copied to clipboard."], "good");
+  } catch {
+    showMessages("settings-message", ["Clipboard copy failed. Select and copy from the text area manually."], "warn");
+  }
+
+  refreshAnalyticsDiagnostics();
+}
+
+/**
+ * Clears local analytics history to restart QA sessions from a clean baseline.
+ */
+function clearAnalyticsDiagnostics() {
+  clearTrackedEvents();
+  refreshAnalyticsDiagnostics();
+  showMessages("settings-message", ["Local analytics log cleared."], "warn");
+}
+
+/**
+ * Captures navigation events used for engagement funnel analysis.
+ */
+function onTabSwitched({ tabId, triggerType }) {
+  track(ANALYTICS_EVENTS.TAB_SWITCHED, {
+    tabId,
+    triggerType,
+  });
 }
 
 /**

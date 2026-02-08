@@ -143,6 +143,17 @@
           <label><input id="setting-showtips" type="checkbox" checked /> Show guidance tips on dashboard</label>
           <button id="reset-account" class="danger spacer-top" type="button">Reset to New Account</button>
         </div>
+        <div class="card">
+          <h3>Analytics Diagnostics (Local)</h3>
+          <p class="muted">For manual QA only. Events never leave your browser unless you copy/export them.</p>
+          <div class="row">
+            <button id="analytics-refresh" class="ghost" type="button">Refresh Event Snapshot</button>
+            <button id="analytics-copy" class="ghost" type="button">Copy JSON</button>
+            <button id="analytics-clear" class="danger" type="button">Clear Event Log</button>
+          </div>
+          <label for="analytics-output" class="label-top">Event Log JSON</label>
+          <textarea id="analytics-output" rows="8" readonly></textarea>
+        </div>
       </div>
       <div id="settings-message"></div>
     </section>

@@ -51,6 +51,19 @@ This document records resolved decisions and unresolved decisions.
 
 ### Technical constraints
 - Storage in MVP: LocalStorage only.
+
+### Analytics and observability (local-first)
+- Analytics are local-only and never auto-sent over network in MVP.
+- Event records include `schemaVersion`, `eventName`, `timestamp`, and typed payload.
+- Instrumented events for MVP:
+  - `daily_submit_success`
+  - `daily_submit_fail` with validation category metadata
+  - `review_saved`, `review_edited`, `review_deleted`
+  - `quest_accepted`
+  - `tab_switched`
+- Diagnostics are available in-app and in console for manual QA/export.
+- Privacy boundary: avoid logging free-form sensitive text; prefer bounded categorical metadata.
+
 - Integrations: none in MVP.
 - Authentication: none in MVP.
 - Hosting: GitHub Pages.
@@ -97,7 +110,7 @@ This document records resolved decisions and unresolved decisions.
 - [ ] Define adaptive logic for target suggestions (V1).
 
 ### Delivery operations
-- [ ] Define analytics events to instrument from day 1.
+- [x] Define analytics events to instrument from day 1 (local-first MVP catalog implemented).
 - [ ] Define roadmap review cadence.
 
 ---
@@ -204,6 +217,7 @@ This document records resolved decisions and unresolved decisions.
 
 ## 4) Change Log Convention
 - 2026-02-08: Moved weekly/monthly review template decisions from TBD to confirmed after implementation landed in code. Documented the implemented structured prompt schema (`wins`, `blockers`, `nextAction`, `confidence`) and reduced TBD to items not yet represented in code.
+- 2026-02-08: Added local-first analytics instrumentation decisions and event taxonomy (typed catalog + single track entrypoint), with explicit privacy boundaries and local diagnostics/export path.
 - Add new entries with date and rationale.
 - Move items from TBD to Confirmed when decided.
 - If reversing a decision, preserve prior decision in history with reason.

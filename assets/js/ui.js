@@ -30,11 +30,23 @@ export function showMessages(containerId, messages, style) {
 /**
  * Activates tab button interactions for section switching.
  */
-export function setupTabs() {
+export function setupTabs(onTabSwitch) {
   const navTabs = document.querySelectorAll(".tabs .tab-btn[data-tab]");
   const allTabTriggers = document.querySelectorAll("[data-tab]");
   allTabTriggers.forEach((tabBtn) => {
-    tabBtn.addEventListener("click", () => activateTab(tabBtn.dataset.tab, navTabs));
+    tabBtn.addEventListener("click", () => {
+      const tabId = tabBtn.dataset.tab;
+      activateTab(tabId, navTabs);
+
+      // Optional callback allows callers to instrument engagement funnels
+      // without coupling analytics logic into view rendering internals.
+      if (typeof onTabSwitch === "function") {
+        onTabSwitch({
+          tabId,
+          triggerType: tabBtn.classList.contains("hero-action") ? "hero-cta" : "nav-tab",
+        });
+      }
+    });
   });
 }
 
@@ -465,7 +477,7 @@ export function renderReviewsList(state) {
 
   /**
    * Renders one review item with consistent metadata and action hooks.
-   * Data attributes are used by delegated event handlers in main.js.
+   * Data attributes are consumed by delegated event handlers in main.js.
    */
   const renderReviewItem = (type, period, review) => `
     <li class="review-item">
@@ -527,7 +539,7 @@ export function renderReviewsList(state) {
     </div>
   `;
 
-  // Rebind controls after each render because the list container is fully replaced.
+  // Rebind pagination controls after each render because list content is replaced.
   document.querySelectorAll(".review-pagination-btn").forEach((button) => {
     button.addEventListener("click", () => {
       switch (button.dataset.reviewAction) {
