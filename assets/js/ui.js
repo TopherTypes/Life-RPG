@@ -461,6 +461,8 @@ function buildDynamicTdeeSummary(state) {
  * Renders the dashboard aggregate and 7-day trend summary views.
  */
 export function renderDashboard(state) {
+  // Core progression primitives are computed once so each section can reuse the
+  // same consistent snapshot without duplicating expensive calculations.
   const progression = computeProgression(state.entries, state.acceptedQuests, state.profile);
   const streakMetrics = computeStreakMetrics(state.entries);
   const entries = progression.orderedEntries;
@@ -475,6 +477,24 @@ export function renderDashboard(state) {
   const behaviorAnalysis = analyzeBehavior(state, 30);
   const questsAnalysis = analyzeQuests(state, 30);
   const reviewsAnalysis = analyzeReviews(state, 30);
+
+  // Primary trend intentionally focuses on one behavior signal (mood) so users
+  // can make a fast daily decision without scanning every metric.
+  const moodSeries = metricAnalyses.mood?.series || [];
+  const latestMoodPoint = [...moodSeries].reverse().find((point) => Number.isFinite(point.value));
+  const moodWindowValues = moodSeries.map((point) => point.value).filter((value) => Number.isFinite(value));
+  const moodAverage = moodWindowValues.length ? Number(metricAnalyses.mood.aggregates.average).toFixed(1) : formatValue(null);
+
+  const recentMoodSlice = moodSeries.slice(-3).map((point) => point.value).filter((value) => Number.isFinite(value));
+  const olderMoodSlice = moodSeries.slice(-7, -3).map((point) => point.value).filter((value) => Number.isFinite(value));
+  const recentMoodAvg = recentMoodSlice.length ? recentMoodSlice.reduce((sum, value) => sum + value, 0) / recentMoodSlice.length : null;
+  const olderMoodAvg = olderMoodSlice.length ? olderMoodSlice.reduce((sum, value) => sum + value, 0) / olderMoodSlice.length : null;
+  let moodTrendLabel = "Stable";
+  if (Number.isFinite(recentMoodAvg) && Number.isFinite(olderMoodAvg)) {
+    const trendDelta = recentMoodAvg - olderMoodAvg;
+    if (trendDelta >= 0.3) moodTrendLabel = "Improving";
+    if (trendDelta <= -0.3) moodTrendLabel = "Downtrend";
+  }
 
   const formatMetricAverage = (metricKey) => {
     const analysis = metricAnalyses[metricKey];
@@ -504,7 +524,7 @@ export function renderDashboard(state) {
     })
     .join("");
 
-  const moodBars = (metricAnalyses.mood?.series || [])
+  const moodBars = moodSeries
     .map((point) => {
       const isMissingMood = point.value === null;
       const safeMood = isMissingMood ? 0 : point.value;
@@ -543,47 +563,78 @@ export function renderDashboard(state) {
     })
     .join("");
 
+  const behaviorHealthPercent = Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100);
+
   document.getElementById("dashboard-overview-content").innerHTML = `
     ${tips}
-    <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
-      <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div></div>
-      <div class="card"><strong>Total Logged Days</strong><div class="metric">${entries.length}</div></div>
-      <div class="card"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
-      <div class="card"><strong>Behavior Modifier</strong><div class="metric">-${progression.behavior.penaltyXp} / +${progression.behavior.recoveryXp}</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)} • Calorie penalty ${formatPercent(progression.behavior.caloriePenaltyRate)}</div></div>
-      ${detailCards}
-      <div class="card"><strong>Baseline TDEE</strong><div class="metric">${tdeeSummary.baselineTdee ?? "—"}</div><div class="muted">Profile-derived estimate.</div></div>
-      <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
-      <div class="card"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Bounded and smoothed to reduce noise.</div></div>
-    </div>
+    <section class="dashboard-section" aria-label="Today's snapshot">
+      <h3>Today’s Snapshot</h3>
+      <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
+        <div class="card"><strong>Current Streak</strong><div class="metric">${streakMetrics.currentStreak}</div><div class="muted">Longest: ${streakMetrics.longestStreak}</div></div>
+        <div class="card"><strong>Behavior Health</strong><div class="metric">${behaviorHealthPercent}%</div><div class="muted">Penalty ${formatPercent(progression.behavior.penaltyRate)} • Recovery ${formatPercent(progression.behavior.recoveryRate)}</div></div>
+        <div class="card"><strong>Primary Trend: Mood</strong><div class="metric">${moodAverage}</div><div class="muted">${moodTrendLabel} • Latest ${latestMoodPoint ? `${latestMoodPoint.value}/10` : "—"}</div></div>
+        <div class="card"><strong>Action</strong><div class="metric">Log today</div><div class="muted">Capture today’s entry to protect streak momentum.</div><button type="button" class="primary" data-tab="daily">Open Daily Entry</button></div>
+      </div>
+    </section>
 
-    <h3 class="spacer-top">7-Day Mood Graph</h3>
-    <p class="chart-legend muted">Legend: <span class="legend-chip legend-low" aria-hidden="true"></span> Filled bar = logged mood (including low values). <span class="legend-chip legend-missing" aria-hidden="true"></span> Hollow dotted bar = no data logged.</p>
-    <div class="chart-wrap">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
+    <section class="dashboard-section" aria-label="Trend overview">
+      <h3>Trend Focus</h3>
+      <p class="chart-legend muted">Legend: <span class="legend-chip legend-low" aria-hidden="true"></span> Filled bar = logged mood (including low values). <span class="legend-chip legend-missing" aria-hidden="true"></span> Hollow dotted bar = no data logged.</p>
+      <div class="chart-wrap">${moodBars || '<p class="muted">Add entries to generate chart data.</p>'}</div>
+    </section>
 
-    <h3 class="spacer-top">Recent Entries (Last 7)</h3>
-    <table>
-      <thead><tr><th>Date</th><th>Calories</th><th>Sleep</th><th>Mood</th><th>Steps</th><th>Exercise Min</th></tr></thead>
-      <tbody>${tableRows}</tbody>
-    </table>
+    <section class="dashboard-section" aria-label="Action center">
+      <h3>Action Center</h3>
+      <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+        <div class="card"><strong>Overall XP</strong><div class="metric">${progression.overallXp}</div><div class="muted">Total logged days: ${entries.length}</div></div>
+        <div class="card"><strong>Dynamic TDEE</strong><div class="metric">${tdeeSummary.enabled ? (tdeeSummary.dynamicTdee ?? "—") : "Disabled"}</div><div class="muted">${tdeeSummary.enabled ? tdeeSummary.interpretation : "Enable adaptive range in Settings to include dynamic targets in behavior mechanics."}</div></div>
+        <div class="card"><strong>TDEE Delta</strong><div class="metric">${tdeeSummary.enabled ? tdeeSummary.deltaText : "—"}</div><div class="muted">Baseline: ${tdeeSummary.baselineTdee ?? "—"} kcal/day</div></div>
+      </div>
 
-    <h3 class="spacer-top">Skill XP</h3>
-    <ul>${skillLines}</ul>
+      <details class="dashboard-details">
+        <summary>Show details: Skills</summary>
+        <ul>${skillLines}</ul>
+      </details>
 
-    <h3>Attribute Levels</h3>
-    <div class="cards ${state.settings.compactCards ? "compact" : ""}">${attributeCards}</div>
+      <details class="dashboard-details">
+        <summary>Show details: Attributes</summary>
+        <div class="cards ${state.settings.compactCards ? "compact" : ""}">${attributeCards}</div>
+      </details>
 
-    <h3 class="spacer-top">Behavior Mechanics</h3>
-    <div class="cards ${state.settings.compactCards ? "compact" : ""}">
-      <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
-      <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
-      <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
-      <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
-    </div>
+      <details class="dashboard-details">
+        <summary>Show details: Behavior mechanics internals</summary>
+        <div class="cards ${state.settings.compactCards ? "compact" : ""}">
+          <div class="card"><strong>Protected Rest Day</strong><div class="metric">${progression.behavior.restDay.eligible ? "Available" : "Not active"}</div><div class="muted">${progression.behavior.restDay.message}</div></div>
+          <div class="card"><strong>Missed-Day Soft Penalty</strong><div class="metric">${formatPercent(progression.behavior.missedDayPenaltyRate)}</div><div class="muted">Applied only for implicit skipped days between logs.</div></div>
+          <div class="card"><strong>Calorie Adherence Penalty</strong><div class="metric">${formatPercent(progression.behavior.caloriePenaltyRate)}</div><div class="muted">Based on recent calories outside your personalized ${progression.behavior.calorieAdherence.tdeeMode === "dynamic" ? "dynamic" : "baseline"} TDEE range when profile data is complete.</div></div>
+          <div class="card"><strong>Comeback Recovery</strong><div class="metric">${formatPercent(progression.behavior.recoveryRate)}</div><div class="muted">${progression.behavior.recoveryRate > 0 ? "Great rebound momentum—keep the streak going." : "No rush. Recovery bonus starts after a short comeback run."}</div></div>
+        </div>
+      </details>
 
-    <h3 class="spacer-top">Quest Highlights</h3>
-    <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>
+      <details class="dashboard-details">
+        <summary>Show details: Quest highlights</summary>
+        <div class="cards ${state.settings.compactCards ? "compact" : ""}">${questHighlights}</div>
+      </details>
+    </section>
+
+    <section class="dashboard-section" aria-label="Deep analytics">
+      <h3>Deep Analytics</h3>
+      <p class="muted">Open a card when you want a full diagnostics drill-down.</p>
+      <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
+        ${detailCards}
+      </div>
+
+      <details class="dashboard-details">
+        <summary>Show details: Recent entries (last 7)</summary>
+        <table>
+          <thead><tr><th>Date</th><th>Calories</th><th>Sleep</th><th>Mood</th><th>Steps</th><th>Exercise Min</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </details>
+    </section>
   `;
 }
+
 
 /**
  * Renders a standardized analytics detail panel.
