@@ -144,6 +144,49 @@
           <button id="reset-account" class="danger spacer-top" type="button">Reset to New Account</button>
         </div>
         <div class="card">
+          <h3>Personal Profile</h3>
+          <p class="muted">Profile fields support personalized calorie evaluation by estimating your daily energy needs.</p>
+
+          <label for="profile-age">Age</label>
+          <input id="profile-age" type="number" min="10" max="120" aria-describedby="profile-age-error profile-guidance" />
+          <p id="profile-age-error" class="field-error" aria-live="polite"></p>
+
+          <label for="profile-gender" class="label-top">Gender</label>
+          <select id="profile-gender" aria-describedby="profile-gender-error profile-guidance">
+            <option value="">Select...</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="nonbinary">Nonbinary</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+          <p id="profile-gender-error" class="field-error" aria-live="polite"></p>
+
+          <label for="profile-height" class="label-top">Height (cm)</label>
+          <input id="profile-height" type="number" min="80" max="260" step="0.1" aria-describedby="profile-height-error profile-guidance" />
+          <p id="profile-height-error" class="field-error" aria-live="polite"></p>
+
+          <label for="profile-weight" class="label-top">Weight (kg)</label>
+          <input id="profile-weight" type="number" min="20" max="400" step="0.1" aria-describedby="profile-weight-error profile-guidance" />
+          <p id="profile-weight-error" class="field-error" aria-live="polite"></p>
+
+          <label for="profile-activity" class="label-top">Activity Level</label>
+          <select id="profile-activity" aria-describedby="profile-activity-error profile-guidance">
+            <option value="">Select...</option>
+            <option value="sedentary">Sedentary</option>
+            <option value="light">Lightly active</option>
+            <option value="moderate">Moderately active</option>
+            <option value="active">Active</option>
+            <option value="very_active">Very active</option>
+          </select>
+          <p id="profile-activity-error" class="field-error" aria-live="polite"></p>
+
+          <label for="profile-tdee" class="label-top">Estimated TDEE (kcal/day)</label>
+          <input id="profile-tdee" type="number" readonly />
+
+          <p id="profile-guidance" class="muted spacer-top">Fill all profile fields to calculate TDEE. Leave fields blank if you do not want personalized calorie guidance.</p>
+          <button id="save-profile" class="primary spacer-top" type="button">Save Profile</button>
+        </div>
+        <div class="card">
           <h3>Analytics Diagnostics (Local)</h3>
           <p class="muted">For manual QA only. Events never leave your browser unless you copy/export them.</p>
           <div class="row">
