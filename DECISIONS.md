@@ -79,39 +79,24 @@ This document records resolved decisions and unresolved decisions.
 > Use this as the active queue for future planning sessions.
 
 ### Product and scope
-- [x] Define the 3 non-negotiable MVP features.
 - [ ] Define explicit launch blockers vs “ship now” criteria.
 - [ ] Define what “thin but lovable MVP” means in concrete terms.
 - [ ] Set a concrete MVP date.
 
 ### Mechanics and balancing
-- [x] Finalize attribute set for RPG system.
-- [x] Define initial skill catalog.
-- [x] Finalize metric-to-XP mapping formulas.
-- [x] Choose exact exponential leveling formula and tuning ranges.
-- [x] Define failure behavior for quests (fail/retry/partial credit logic).
 - [ ] Define soft-penalty system for missed days.
 - [ ] Define rest-day anti-abuse model (diminishing returns vs explicit penalties).
 - [ ] Define recovery/comeback mechanics.
 
-### Data and validation
-- [x] Define validation rules for missing/incomplete/unrealistic values.
-- [x] Decide if mood scale is numeric, categorical, or hybrid.
-- [x] Define the minimum required exercise fields for each day.
-
 ### UX and transparency
-- [x] Define exact end-of-entry recap content and hierarchy.
 - [ ] Define “mystique mode” vs “verbose/clear mode” behavior in settings.
 - [ ] Decide whether journaling/reflection prompts are included in MVP or V1.
 - [ ] Define mental health boundaries/disclaimers.
 
 ### Reviews and planning
-- [ ] Define weekly review template/questions.
-- [ ] Define monthly review template/questions.
-- [ ] Define adaptation logic for target suggestions (V1).
+- [ ] Define adaptive logic for target suggestions (V1).
 
 ### Delivery operations
-- [x] Define milestone-level acceptance criteria in measurable terms.
 - [ ] Define analytics events to instrument from day 1.
 - [ ] Define roadmap review cadence.
 
@@ -182,6 +167,15 @@ This document records resolved decisions and unresolved decisions.
 2. Attribute progress summary.
 3. Quest progress update.
 
+### Weekly/monthly review templates (confirmed + implemented)
+- Weekly and monthly review forms are implemented in MVP.
+- Both use the same structured prompt schema for consistency:
+  - `wins`
+  - `blockers`
+  - `nextAction`
+  - `confidence`
+- At least one prompt field plus a valid period is required before saving.
+
 ### Data validation & anomaly handling (confirmed starting policy)
 - **Hard validation (block submit):**
   - required fields missing,
@@ -209,6 +203,7 @@ This document records resolved decisions and unresolved decisions.
 ---
 
 ## 4) Change Log Convention
+- 2026-02-08: Moved weekly/monthly review template decisions from TBD to confirmed after implementation landed in code. Documented the implemented structured prompt schema (`wins`, `blockers`, `nextAction`, `confidence`) and reduced TBD to items not yet represented in code.
 - Add new entries with date and rationale.
 - Move items from TBD to Confirmed when decided.
 - If reversing a decision, preserve prior decision in history with reason.
