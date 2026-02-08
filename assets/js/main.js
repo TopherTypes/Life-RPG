@@ -795,6 +795,16 @@ function onTabSwitched({ tabId, triggerType }) {
  * Handles delegated dashboard interactions for metric drill-down navigation.
  */
 function onDashboardContentClick(event) {
+  const metricsToggle = event.target.closest("[data-dashboard-metrics-toggle]");
+  if (metricsToggle) {
+    // Persist expanded/collapsed preference so users can opt into a denser
+    // analytics overview without re-toggling on each visit.
+    state.settings.dashboardExpandedMetrics = !state.settings.dashboardExpandedMetrics;
+    persistState(state);
+    renderDashboard(state);
+    return;
+  }
+
   const trigger = event.target.closest("[data-analysis-target]");
   if (trigger) {
     const { analysisTarget } = trigger.dataset;

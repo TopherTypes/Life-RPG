@@ -546,17 +546,25 @@ export function renderDashboard(state) {
     ? '<div class="msg good">Tip: Use the “Log Daily Record” button at the top to keep your streak and maximize bonus XP opportunities.</div>'
     : "";
 
-  const detailCards = [
-    { target: "daily:mood", title: "7-Day Avg Mood", metric: "mood" },
-    { target: "daily:sleepHours", title: "7-Day Avg Sleep (hrs)", metric: "sleepHours" },
-    { target: "daily:steps", title: "7-Day Avg Steps", metric: "steps" },
-    { target: "daily:exerciseMinutes", title: "7-Day Avg Exercise Min", metric: "exerciseMinutes" },
-    { target: "daily:exerciseEffort", title: "7-Day Avg Exercise Effort", metric: "exerciseEffort" },
-    { target: "daily:calories", title: "7-Day Avg Calories", metric: "calories" },
-    { target: "behavior", title: "Behavior Health", value: `${Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100)}%` },
-    { target: "quests", title: "Quest Acceptance", value: `${Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)}%` },
-    { target: "reviews", title: "Saved Reviews", value: String(reviewsAnalysis.aggregates.totalCount || 0) },
-  ]
+  // Dashboard metrics are intentionally separated into compact defaults and
+  // optional extended diagnostics so overview remains decision-focused.
+  const metricCardGroups = {
+    default: [
+      { target: "daily:mood", title: "7-Day Avg Mood", metric: "mood" },
+      { target: "daily:sleepHours", title: "7-Day Avg Sleep (hrs)", metric: "sleepHours" },
+      { target: "behavior", title: "Behavior Health", value: `${Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100)}%` },
+    ],
+    extended: [
+      { target: "daily:steps", title: "7-Day Avg Steps", metric: "steps" },
+      { target: "daily:exerciseMinutes", title: "7-Day Avg Exercise Min", metric: "exerciseMinutes" },
+      { target: "daily:exerciseEffort", title: "7-Day Avg Exercise Effort", metric: "exerciseEffort" },
+      { target: "daily:calories", title: "7-Day Avg Calories", metric: "calories" },
+      { target: "quests", title: "Quest Acceptance", value: `${Math.round((questsAnalysis.aggregates.acceptanceRate || 0) * 100)}%` },
+      { target: "reviews", title: "Saved Reviews", value: String(reviewsAnalysis.aggregates.totalCount || 0) },
+    ],
+  };
+
+  const buildMetricCards = (cards) => cards
     .map((card) => {
       const value = card.metric ? formatMetricAverage(card.metric) : card.value;
       const intentLabel = card.metric ? "View trend" : "View analysis";
@@ -566,6 +574,10 @@ export function renderDashboard(state) {
       return `<button class="card card--drilldown dashboard-metric-trigger" type="button" data-analysis-target="${card.target}" aria-label="${cardAriaLabel}"><strong>${card.title}</strong><div class="metric">${value}</div><div class="muted">Tap for detail view</div><span class="card-intent-badge">${intentLabel}</span></button>`;
     })
     .join("");
+
+  const defaultMetricCards = buildMetricCards(metricCardGroups.default);
+  const extendedMetricCards = buildMetricCards(metricCardGroups.extended);
+  const isExpandedMetrics = state.settings.dashboardExpandedMetrics === true;
 
   const behaviorHealthPercent = Math.round((1 - (behaviorAnalysis.aggregates.penaltyRate || 0)) * 100);
 
@@ -625,7 +637,27 @@ export function renderDashboard(state) {
       <h3>Deep Analytics</h3>
       <p class="muted">Open a card when you want a full diagnostics drill-down.</p>
       <div class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}">
-        ${detailCards}
+        ${defaultMetricCards}
+        <button
+          class="card card--summary dashboard-metric-expand-toggle"
+          type="button"
+          data-dashboard-metrics-toggle
+          aria-expanded="${isExpandedMetrics}"
+          aria-controls="dashboard-extended-metrics"
+        >
+          <strong>${isExpandedMetrics ? "Fewer metrics" : "More metrics"}</strong>
+          <div class="metric">${metricCardGroups.extended.length}</div>
+          <div class="muted">${isExpandedMetrics ? "Hide non-critical cards" : "Show extended analytics"}</div>
+        </button>
+      </div>
+
+      <div
+        id="dashboard-extended-metrics"
+        class="cards dashboard-summary ${state.settings.compactCards ? "compact" : ""}"
+        ${isExpandedMetrics ? "" : "hidden"}
+        aria-label="Extended metrics"
+      >
+        ${extendedMetricCards}
       </div>
 
       <details class="dashboard-details">
