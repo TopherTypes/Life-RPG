@@ -833,7 +833,9 @@ export function renderDashboardDetail(state, targetKey) {
 
   // Shared recent-log table lives in detail views so the overview can stay
   // compact while users still retain access to full day-level context.
-  const recentEntryRows = [...state.entries]
+  // Entries are persisted as a date-keyed object map; convert to an array here
+  // so detail rendering remains resilient across fresh and legacy payload shapes.
+  const recentEntryRows = Object.values(state.entries || {})
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-7)
     .reverse()
